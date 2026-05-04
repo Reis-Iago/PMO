@@ -453,10 +453,10 @@ body {
 .budget-cell { font-size: 9.5px; font-weight: 600; color: var(--ink); }
 .eac-over { color: var(--red); }
 
-#page-0 .proj-table { font-size: 10.6px; }
-#page-0 .proj-table thead th { font-size: 9.2px; padding: 9px 9px; }
-#page-0 .proj-table tbody td { padding: 11px 9px; line-height: 1.24; }
-#page-0 .proj-name { font-size: 10.4px; }
+#page-0 .proj-table { font-size: 11.6px; }
+#page-0 .proj-table thead th { font-size: 10.2px; padding: 9px 9px; }
+#page-0 .proj-table tbody td { padding: 14px 9px; line-height: 1.28; }
+#page-0 .proj-name { font-size: 11.4px; }
 .eac-under { color: var(--green); }
 .eac-ok { color: var(--ink-600); }
 
@@ -700,15 +700,18 @@ body {
   overflow:hidden;
 }
 .portfolio-budget-overview .mini-card-value{
-  font-size:28px;
-  margin:2px auto 0;
+  font-size:19px;
+  font-weight:800;
+  margin:0;
   background:#f8e7a1;
   border:1px solid #efd77a;
-  border-radius:10px;
-  padding:7px 12px;
-  width:82%;
+  border-radius:8px;
+  padding:8px 12px;
+  width:132px;
   text-align:center;
   color:#6f4e00;
+  line-height:1;
+  white-space:nowrap;
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);
 }
 .portfolio-budget-overview .kpi-badge{left:18px;bottom:10px}
@@ -716,29 +719,38 @@ body {
   position:relative;
   display:grid;
   grid-template-columns:1fr 1fr;
-  gap:8px;
-  margin-top:0;
-  padding-top:30px;
+  grid-template-rows:1fr 1fr 1fr;
+  column-gap:26px;
+  row-gap:0;
+  margin-top:8px;
+  margin-left:0;
+  padding-top:0;
+  min-height:116px;
+  align-items:center;
 }
 .budget-flow-svg{
   position:absolute;
-  top:0;
-  left:0;
+  inset:0;
   width:100%;
-  height:38px;
+  height:100%;
   pointer-events:none;
+  z-index:0;
 }
+.budget-node{position:relative;z-index:1}
+.budget-node-main{grid-column:1;grid-row:2;justify-self:center}
+.budget-node-cadastro{grid-column:2;grid-row:1;justify-self:center}
+.budget-node-ppd{grid-column:2;grid-row:3;justify-self:center}
 .budget-split{
   border-radius:8px;
-  padding:6px 7px;
+  padding:8px 10px;
   color:#fff;
   width:fit-content;
   max-width:92%;
   text-align:left;
-  margin:0 auto;
+  margin:0;
 }
 .budget-split-label{
-  font-size:6px;
+  font-size:7px;
   font-weight:800;
   text-transform:uppercase;
   letter-spacing:.04em;
@@ -747,29 +759,18 @@ body {
 }
 .budget-split-value{
   margin-top:5px;
-  font-size:11px;
+  font-size:13px;
   font-weight:800;
   line-height:1;
   white-space:nowrap;
 }
 .budget-split-pct{
   position:relative;
-  margin-top:16px;
-  font-size:10px;
+  margin-top:5px;
+  font-size:11px;
   font-weight:900;
-  text-align:center;
+  text-align:left;
   line-height:1;
-}
-.budget-split-pct::before{
-  content:'';
-  position:absolute;
-  left:50%;
-  top:-13px;
-  width:2px;
-  height:10px;
-  transform:translateX(-50%);
-  background:currentColor;
-  border-radius:2px;
 }
 .budget-topdown .sv-head{margin-bottom:10px}
 .budget-topdown{min-height:178px;padding:12px 18px 10px;overflow:hidden}
@@ -1334,7 +1335,7 @@ body {
     <div class="overview-charts-row">
       <div class="chart-card mini-card kpi-large portfolio-budget-overview">
         <div class="chart-card-title">Budget do Portfólio</div>
-        <div class="mini-card-value" id="portfolio-budget-card">—</div>
+        <div class="mini-card-value" id="portfolio-budget-card" style="display:none;">—</div>
         <div class="budget-breakdown" id="portfolio-budget-breakdown"></div>
       </div>
 
@@ -2185,18 +2186,21 @@ function renderPortfolioBudgetCard() {
       .reduce((s, p) => s + (p.budget || 0), 0);
     const total = Math.max(1, cadastro + ppd);
     breakdown.innerHTML = `
-      <svg class="budget-flow-svg" viewBox="0 0 100 50" preserveAspectRatio="none">
-        <line x1="50" y1="0" x2="28" y2="34" stroke="#059669" stroke-width="2.7" stroke-linecap="round"></line>
-        <line x1="50" y1="0" x2="72" y2="34" stroke="#2563eb" stroke-width="2.7" stroke-linecap="round"></line>
+      <svg class="budget-flow-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <line x1="44" y1="50" x2="68" y2="20" stroke="#059669" stroke-width="2.6" stroke-linecap="round"></line>
+        <line x1="44" y1="50" x2="68" y2="80" stroke="#2563eb" stroke-width="2.6" stroke-linecap="round"></line>
       </svg>
-      <div>
+      <div class="budget-node budget-node-main">
+        <div class="mini-card-value">${fmtMM(portfolioBudget || totalBudget)}</div>
+      </div>
+      <div class="budget-node budget-node-cadastro">
         <div class="budget-split" style="background:var(--green);">
           <div class="budget-split-label">Cadastro</div>
           <div class="budget-split-value">${fmtMM(cadastro)}</div>
         </div>
         <div class="budget-split-pct" style="color:var(--green);">${((cadastro / total) * 100).toFixed(1).replace('.', ',')}% do total</div>
       </div>
-      <div>
+      <div class="budget-node budget-node-ppd">
         <div class="budget-split" style="background:var(--blue);">
           <div class="budget-split-label">PPD</div>
           <div class="budget-split-value">${fmtMM(ppd)}</div>
