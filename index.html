@@ -1705,11 +1705,21 @@ function normalizeText(value) {
 }
 
 function normalizeCode(value) {
-  return normalizeText(value).toUpperCase().replace(/\s+/g, '');
+  return normalizeText(value).toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
 function normalizeKey(value) {
   return normalizeText(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function findSheet(workbook, names) {
+  const wanted = names.map(normalizeKey);
+  const sheetName = workbook.SheetNames.find(name => wanted.includes(normalizeKey(name)));
+  return sheetName ? workbook.Sheets[sheetName] : null;
+}
+
+function findColumn(headers, matcher) {
+  return headers.findIndex(header => matcher(normalizeKey(header)));
 }
 
 function parseNumber(value) {
@@ -1875,13 +1885,13 @@ function getDateEndPositionPct(date, monthCount) {
 function extractEvolutionRagMap(matrix) {
   const map = new Map();
   const headers = matrix[0] || [];
-  const dateCol = headers.findIndex(h => normalizeKey(h).includes('data') && normalizeKey(h).includes('referencia'));
-  const codeCol = headers.findIndex(h => normalizeKey(h).includes('codigo') && normalizeKey(h).includes('projeto'));
-  const ragCol = headers.findIndex(h => normalizeKey(h) === 'rag');
-  const completionCol = headers.findIndex(h => normalizeKey(h).includes('conclusao') && normalizeKey(h).includes('real'));
-  const svCol = headers.findIndex(h => normalizeKey(h).includes('desvio') && normalizeKey(h).includes('prazo'));
-  const spiCol = headers.findIndex(h => normalizeKey(h) === 'spi' || normalizeKey(h).includes('spi'));
-  const cpiCol = headers.findIndex(h => normalizeKey(h) === 'cpi' || normalizeKey(h).includes('cpi'));
+  const dateCol = findColumn(headers, key => key.includes('data') && key.includes('referencia'));
+  const codeCol = findColumn(headers, key => key.includes('codigo') && key.includes('projeto'));
+  const ragCol = findColumn(headers, key => key === 'rag');
+  const completionCol = findColumn(headers, key => key.includes('conclusao') && key.includes('real'));
+  const svCol = findColumn(headers, key => key.includes('desvio') && key.includes('prazo'));
+  const spiCol = findColumn(headers, key => key === 'spi' || key.includes('spi'));
+  const cpiCol = findColumn(headers, key => key === 'cpi' || key.includes('cpi'));
   if (dateCol < 0 || codeCol < 0) return map;
   matrix.slice(1).forEach(row => {
     const code = normalizeCode(row[codeCol]);
@@ -1901,7 +1911,10 @@ function extractEvolutionRagMap(matrix) {
 
 function getProjectEvolution(code) {
   const byMonth = evolutionRagMap.get(normalizeCode(code));
-  return byMonth ? byMonth.get(TODAY_MONTH) || {} : {};
+  if (!byMonth) return {};
+  if (byMonth.has(TODAY_MONTH)) return byMonth.get(TODAY_MONTH) || {};
+  const previous = [...byMonth.keys()].filter(monthIndex => monthIndex <= TODAY_MONTH).sort((a, b) => b - a)[0];
+  return Number.isInteger(previous) ? byMonth.get(previous) || {} : {};
 }
 
 function getProjectRag(code) {
@@ -1967,17 +1980,22 @@ function computeTodayMonth(realMap) {
 }
 
 function buildProjectsFromWorkbook(workbook) {
-  const pmoSheet = workbook.Sheets['PMO'];
+  const pmoSheet = findSheet(workbook, ['PMO']);
   if (!pmoSheet) throw new Error('Aba PMO nao encontrada.');
   const pmoRows = extractSheetMatrix(pmoSheet);
-  const bpMatrix = workbook.Sheets['BP'] ? extractSheetMatrix(workbook.Sheets['BP']) : [];
-  const realMatrix = workbook.Sheets['Realizado'] ? extractSheetMatrix(workbook.Sheets['Realizado']) : [];
+  const bpSheet = findSheet(workbook, ['BP']);
+  const realSheet = findSheet(workbook, ['Realizado']);
+  const milestoneSheet = findSheet(workbook, ['Marcos']);
+  const evolutionSheet = findSheet(workbook, ['Evolução', 'Evolucao']);
+  const consolidatedSheet = findSheet(workbook, ['Consolidado']);
+  const bpMatrix = bpSheet ? extractSheetMatrix(bpSheet) : [];
+  const realMatrix = realSheet ? extractSheetMatrix(realSheet) : [];
   MONTHS = extractMonthHeaders(bpMatrix.length ? bpMatrix : realMatrix);
-  consolidatedSeries = workbook.Sheets['Consolidado'] ? extractConsolidatedSeries(extractSheetMatrix(workbook.Sheets['Consolidado'])) : null;
-  const bpMap = workbook.Sheets['BP'] ? extractMonthlyMap(extractSheetMatrix(workbook.Sheets['BP'])) : new Map();
-  const realMap = workbook.Sheets['Realizado'] ? extractMonthlyMap(extractSheetMatrix(workbook.Sheets['Realizado'])) : new Map();
-  const milestoneMap = workbook.Sheets['Marcos'] ? extractMilestoneMap(extractSheetMatrix(workbook.Sheets['Marcos'])) : new Map();
-  evolutionRagMap = workbook.Sheets['Evolução'] ? extractEvolutionRagMap(extractSheetMatrix(workbook.Sheets['Evolução'])) : new Map();
+  consolidatedSeries = consolidatedSheet ? extractConsolidatedSeries(extractSheetMatrix(consolidatedSheet)) : null;
+  const bpMap = bpSheet ? extractMonthlyMap(extractSheetMatrix(bpSheet)) : new Map();
+  const realMap = realSheet ? extractMonthlyMap(extractSheetMatrix(realSheet)) : new Map();
+  const milestoneMap = milestoneSheet ? extractMilestoneMap(extractSheetMatrix(milestoneSheet)) : new Map();
+  evolutionRagMap = evolutionSheet ? extractEvolutionRagMap(extractSheetMatrix(evolutionSheet)) : new Map();
   TODAY_MONTH = getLatestRagMonth() ?? computeTodayMonth(realMap);
   portfolioBudget = pmoRows.slice(1).reduce((max, row) => Math.max(max, parseNumber(row[22])), 0);
   const projects = pmoRows.slice(1).map(row => {
@@ -2111,7 +2129,7 @@ function getPortfolioStatusStyles(status) {
 
 function getRagInfo(value) {
   const raw = normalizeText(value).toLowerCase();
-  if (raw.includes('acima') || raw.includes('verde')) return { label: 'Acima do índice', color: 'var(--green)', bg: 'var(--green-l)', key: 'acima' };
+  if (raw.includes('acima') || raw.includes('verde') || raw.includes('adiant')) return { label: 'Acima do índice', color: 'var(--green)', bg: 'var(--green-l)', key: 'acima' };
   if (raw.includes('aten') || raw.includes('laranja') || raw.includes('atras')) return { label: 'Atenção', color: 'var(--amber)', bg: 'var(--amber-l)', key: 'atencao' };
   if (raw.includes('prazo') || raw.includes('azul')) return { label: 'No prazo', color: 'var(--blue)', bg: 'var(--blue-l)', key: 'prazo' };
   return { label: value || '-', color: '#64748b', bg: '#e2e8f0', key: 'sem' };
