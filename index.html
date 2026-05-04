@@ -578,8 +578,9 @@ body {
 .sv-days { font-size:9px; font-weight:800; color:var(--red); text-align:right; }
 .gantt-row-chart {
   position: relative;
-  padding: 14px 0;
+  padding: 0;
   display: flex; align-items: center;
+  overflow: hidden;
 }
 .gantt-bar-real {
   position: absolute;
@@ -2460,26 +2461,22 @@ function renderSchedulePies() {
   const onTime = projData.filter(p => !isLate(p)).length;
   const late = projData.filter(isLate).length;
 
-  function donutPath(cx, cy, r, start, end) {
-    const a0 = (start - 90) * Math.PI / 180;
-    const a1 = (end - 90) * Math.PI / 180;
-    const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
-    const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
-    return `M ${cx} ${cy} L ${x0} ${y0} A ${r} ${r} 0 ${end - start > 180 ? 1 : 0} 1 ${x1} ${y1} Z`;
-  }
-
   function drawPie(svg, items, centerText) {
     if (!svg) return;
     const total = Math.max(1, items.reduce((s, i) => s + i.value, 0));
-    let angle = 0;
+    const cx = 86, cy = 82, r = 50;
+    const circumference = 2 * Math.PI * r;
+    let offset = 0;
     let out = '';
     items.forEach(item => {
       if (!item.value) return;
-      const next = angle + item.value / total * 360;
-      out += `<path d="${donutPath(86, 82, 68, angle, next)}" fill="${item.color}" stroke="#fff" stroke-width="1"/>`;
-      angle = next;
+      const dash = item.value / total * circumference;
+      out += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${item.color}" stroke-width="34"
+        stroke-dasharray="${dash} ${circumference - dash}" stroke-dashoffset="${-offset}"
+        transform="rotate(-90 ${cx} ${cy})" stroke-linecap="butt"/>`;
+      offset += dash;
     });
-    out += `<circle cx="86" cy="82" r="38" fill="#fff"/>`;
+    out += `<circle cx="86" cy="82" r="32" fill="#fff"/>`;
     out += `<text x="86" y="79" font-size="20" font-weight="800" fill="#0f172a" text-anchor="middle">${total}</text>`;
     out += `<text x="86" y="96" font-size="10" fill="#64748b" text-anchor="middle">${centerText}</text>`;
     out += items.map((item, i) => {
@@ -2574,11 +2571,16 @@ function renderGantt() {
     const ragInfo = getRagInfo(p.rag);
     const healthColor = ragInfo.color;
 
+    const milestonePositions = p.milestones.map((ms) => {
+      const parsedDate = ms.date || parseDateValue(ms.nome);
+      return getDatePositionPct(parsedDate, MONTH_COLS) ?? ((ms.m + 0.5) / MONTH_COLS) * 100;
+    });
     const milestonesHtml = p.milestones.map((ms, idx) => {
       const parsedDate = ms.date || parseDateValue(ms.nome);
-      const pos = getDatePositionPct(parsedDate, MONTH_COLS) ?? ((ms.m + 0.5) / MONTH_COLS) * 100;
+      const pos = milestonePositions[idx];
       const color = '#111827';
-      const dateTop = 'calc(50% + 12px)';
+      const closeCount = milestonePositions.slice(0, idx).filter(prev => Math.abs(prev - pos) < 4).length;
+      const dateTop = closeCount % 2 === 0 ? 'calc(50% + 12px)' : 'calc(50% - 20px)';
       return `
         <div class="gantt-milestone"
              style="left:${pos}%;background:#fff;border-color:${color};"
