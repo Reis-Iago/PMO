@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PMO — Dashboard de Portfolio</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy: #0d1b2a;
+  --navy2: #162032;
+  --navy3: #1e2d40;
+  --blue: #2563eb;
+  --blue-l: #dbeafe;
+  --blue-d: #1d4ed8;
+  --green: #059669;
+  --green-l: #d1fae5;
+  --red: #dc2626;
+  --red-l: #fee2e2;
+  --amber: #d97706;
+  --amber-l: #fef3c7;
+  --ink: #0f172a;
+  --ink-600: #475569;
+  --ink-400: #94a3b8;
+  --ink-200: #e2e8f0;
+  --ink-100: #f1f5f9;
+  --white: #ffffff;
+  --card-bg: #ffffff;
+  --border: #e2e8f0;
+  --radius: 10px;
+  --shadow: 0 1px 4px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04);
+}
+
+@media print {
+  body { background: white !important; }
+  .header-strip, .tabs-bar, .page:not(.active) { display: none !important; }
+  .page.active { display: block !important; padding: 0 !important; }
+  .print-header { display: block !important; }
+  .no-print { display: none !important; }
+  .kpi-card, .proj-table-wrap, .gantt-card, .chart-card, .s-box { break-inside: avoid; }
+}
+.print-header {
+  display: none;
+  background: var(--navy);
+  color: white;
+  padding: 12px 28px;
+  font-family: 'DM Sans', sans-serif;
+}
+.print-header h1 { font-size: 16px; font-weight: 700; }
+.print-header p { font-size: 11px; color: rgba(255,255,255,.6); }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: #f0f4f8;
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── HEADER ─── */
+.header {
+  background: var(--navy);
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 56px;
+  flex-shrink: 0;
+}
+.header-logo {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  opacity: .9;
+}
+.header-sep { width: 1px; height: 20px; background: rgba(255,255,255,.15); }
+.header-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255,255,255,.7);
+}
+.header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.header-date { font-size: 12px; color: rgba(255,255,255,.45); font-family: 'DM Mono', monospace; }
+.header-badge {
+  background: rgba(37,99,235,.35);
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: .04em;
+}
+
+/* ─── TABS ─── */
+.tabs-bar {
+  background: var(--navy2);
+  display: flex;
+  gap: 2px;
+  padding: 0 28px;
+  flex-shrink: 0;
+}
+.tab-btn {
+  padding: 0 22px;
+  height: 44px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255,255,255,.45);
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color .2s, border-color .2s;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: .01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tab-btn:hover { color: rgba(255,255,255,.75); }
+.tab-btn.active { color: #fff; border-bottom-color: var(--blue); }
+.tab-num {
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(255,255,255,.12);
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-family: 'DM Mono', monospace;
+}
+.tab-btn.active .tab-num { background: var(--blue); }
+
+/* ─── PAGES ─── */
+.page { display: none; flex: 1; overflow-y: auto; padding: 24px 28px 32px; }
+.page.active { display: block; }
+
+/* ─── KPI CARDS ─── */
+.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 20px; }
+.kpi-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--accent, var(--blue));
+}
+.kpi-label { font-size: 11px; font-weight: 600; color: var(--ink-400); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+.kpi-value { font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1; margin-bottom: 6px; }
+.kpi-sub { font-size: 11.5px; color: var(--ink-600); display: flex; align-items: center; gap: 5px; }
+.kpi-delta { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
+.kpi-delta.pos { background: var(--green-l); color: var(--green); }
+.kpi-delta.neg { background: var(--red-l); color: var(--red); }
+.kpi-delta.neu { background: var(--amber-l); color: var(--amber); }
+
+/* ─── SECTION HEADER ─── */
+.section-hd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.section-hd h2 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.section-hd .section-line { flex: 1; height: 1px; background: var(--border); }
+
+/* ─── PROJECT TABLE ─── */
+.proj-table-wrap {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.proj-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.proj-table thead th {
+  background: var(--ink-100);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-400);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.proj-table thead th:first-child { padding-left: 18px; }
+.proj-table tbody tr { border-bottom: 1px solid #f1f5f9; transition: background .12s; }
+.proj-table tbody tr:hover { background: #f8fafc; }
+.proj-table tbody tr:last-child { border-bottom: none; }
+.proj-table tbody td { padding: 11px 14px; vertical-align: middle; }
+.proj-table tbody td:first-child { padding-left: 18px; }
+
+.proj-id { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-400); }
+.proj-name { font-weight: 600; color: var(--ink); }
+.proj-area { font-size: 11px; color: var(--ink-400); margin-top: 1px; }
+
+/* health dot */
+.health-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+}
+
+/* mini progress bar */
+.mini-bar-track { height: 5px; background: var(--ink-200); border-radius: 10px; overflow: hidden; }
+.mini-bar-fill { height: 100%; border-radius: 10px; }
+
+/* budget cell */
+.budget-cell { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; }
+.eac-over { color: var(--red); }
+.eac-under { color: var(--green); }
+.eac-ok { color: var(--ink-600); }
+
+/* status pill */
+.status-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600;
+  padding: 3px 9px; border-radius: 12px;
+}
+
+/* freq chip */
+.freq-chip {
+  font-size: 10.5px; color: var(--ink-600);
+  background: var(--ink-100); padding: 2px 8px; border-radius: 6px;
+  font-weight: 500;
+}
+
+/* ─── GANTT (PAGE 2) ─── */
+.gantt-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  padding: 0;
+  overflow: hidden;
+}
+.gantt-header {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  border-bottom: 1px solid var(--border);
+  background: var(--ink-100);
+}
+.gantt-header-label {
+  padding: 10px 16px;
+  font-size: 10.5px; font-weight: 700; color: var(--ink-400);
+  text-transform: uppercase; letter-spacing: .06em;
+  border-right: 1px solid var(--border);
+}
+.gantt-months {
+  display: grid;
+  padding: 0;
+}
+.gantt-month-cell {
+  padding: 10px 0;
+  text-align: center;
+  font-size: 11px; font-weight: 600; color: var(--ink-400);
+  border-right: 1px solid var(--border);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.gantt-row {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  border-bottom: 1px solid #f1f5f9;
+  min-height: 44px;
+  transition: background .12s;
+}
+.gantt-row:hover { background: #fafbfc; }
+.gantt-row:last-child { border-bottom: none; }
+.gantt-row-label {
+  padding: 0 16px;
+  display: flex; flex-direction: column; justify-content: center;
+  border-right: 1px solid var(--border);
+  gap: 2px;
+}
+.gantt-row-name { font-size: 12px; font-weight: 600; color: var(--ink); }
+.gantt-row-resp { font-size: 10.5px; color: var(--ink-400); }
+.gantt-row-chart {
+  position: relative;
+  padding: 8px 0;
+  display: flex; align-items: center;
+}
+.gantt-bar-bg {
+  position: absolute;
+  height: 14px;
+  border-radius: 4px;
+  top: 50%; transform: translateY(-50%);
+}
+.gantt-bar-real {
+  position: absolute;
+  height: 14px;
+  border-radius: 4px 0 0 4px;
+  top: 50%; transform: translateY(-50%);
+  opacity: .9;
+}
+.gantt-milestone {
+  position: absolute;
+  width: 10px; height: 10px;
+  transform: translateX(-50%) translateY(-50%) rotate(45deg);
+  top: 50%;
+  border: 2px solid;
+  border-radius: 1px;
+}
+.gantt-today-line {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 1.5px;
+  background: var(--red);
+  opacity: .7;
+}
+.gantt-today-label {
+  position: absolute;
+  top: 0;
+  font-size: 9.5px; font-weight: 700;
+  color: var(--red);
+  background: white;
+  padding: 0 3px;
+  transform: translateX(-50%);
+}
+
+/* ─── FINANCE PAGE ─── */
+.fin-top { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+.fin-charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.chart-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  padding: 20px;
+}
+.chart-card-hd { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
+.chart-card-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+.chart-card-sub { font-size: 11px; color: var(--ink-400); }
+
+.legend-row { display: flex; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ink-600); }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.legend-line { width: 18px; height: 2.5px; border-radius: 2px; flex-shrink: 0; }
+
+/* desvio bars */
+.dev-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.dev-row-name { font-size: 11.5px; color: var(--ink); font-weight: 500; width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+.dev-bar-track { flex: 1; height: 8px; background: var(--ink-200); border-radius: 4px; overflow: hidden; }
+.dev-bar-fill { height: 100%; border-radius: 4px; }
+.dev-pct { font-size: 11px; font-family: 'DM Mono', monospace; font-weight: 600; width: 52px; text-align: right; flex-shrink: 0; }
+
+/* summary boxes */
+.summary-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+.s-box {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.s-box-icon { font-size: 18px; }
+.s-box-val { font-size: 22px; font-weight: 700; }
+.s-box-lab { font-size: 11px; color: var(--ink-400); font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
+
+/* ─── RISK INDEX CARD ─── */
+.risk-matrix {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+}
+.risk-cell {
+  border-radius: 8px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.risk-count { font-size: 28px; font-weight: 700; }
+.risk-lab { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--ink-200); border-radius: 4px; }
+
+/* ─── EXECUTIVE HEADER STRIP ─── */
+.exec-strip {
+  background: var(--navy);
+  flex-shrink: 0;
+}
+.exec-strip-top {
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  height: 52px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  gap: 16px;
+}
+.exec-badge {
+  background: rgba(37,99,235,.3);
+  border: 1px solid rgba(37,99,235,.5);
+  color: #93c5fd;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 11px;
+  border-radius: 4px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.exec-title-block {
+  flex: 1;
+  text-align: center;
+}
+.exec-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: .01em;
+  line-height: 1.2;
+}
+.exec-subtitle {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255,255,255,.4);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+.exec-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.btn-pdf {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: .02em;
+  transition: background .15s;
+}
+.btn-pdf:hover { background: var(--blue-d); }
+.btn-pdf svg { flex-shrink: 0; }
+.btn-icon {
+  width: 30px; height: 30px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.07);
+  color: rgba(255,255,255,.6);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.btn-icon:hover { background: rgba(255,255,255,.14); color: #fff; }
+
+.exec-strip-meta {
+  display: flex;
+  align-items: stretch;
+  padding: 0 24px;
+  height: 38px;
+  gap: 0;
+}
+.meta-field {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 18px 0 0;
+  margin-right: 18px;
+  border-right: 1px solid rgba(255,255,255,.1);
+  gap: 1px;
+}
+.meta-field:last-child { border-right: none; margin-right: 0; }
+.meta-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255,255,255,.35);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.meta-value {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgba(255,255,255,.85);
+  white-space: nowrap;
+}
+.meta-spacer { flex: 1; }
+.meta-month-badge {
+  display: flex;
+  align-items: center;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 5px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,.8);
+  align-self: center;
+  letter-spacing: .02em;
+}
+</style>
+
+<template id="__bundler_thumbnail" data-bg-color="#0d1b2a">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <!-- Header strip -->
+    <rect width="1200" height="800" fill="#0d1b2a"/>
+    <rect x="0" y="0" width="1200" height="60" fill="#162032"/>
+    <rect x="24" y="18" width="120" height="24" rx="4" fill="#2563eb" opacity=".5"/>
+    <rect x="400" y="14" width="400" height="18" rx="4" fill="white" opacity=".2"/>
+    <rect x="470" y="36" width="260" height="10" rx="3" fill="white" opacity=".1"/>
+    <rect x="1040" y="16" width="120" height="28" rx="6" fill="#2563eb"/>
+    <!-- Meta row -->
+    <rect x="0" y="60" width="1200" height="38" fill="#0d1b2a"/>
+    <rect x="24" y="74" width="80" height="10" rx="3" fill="white" opacity=".15"/>
+    <rect x="150" y="74" width="100" height="10" rx="3" fill="white" opacity=".15"/>
+    <rect x="300" y="74" width="80" height="10" rx="3" fill="white" opacity=".15"/>
+    <!-- Tabs -->
+    <rect x="0" y="98" width="1200" height="44" fill="#162032"/>
+    <rect x="24" y="110" width="100" height="20" rx="3" fill="white" opacity=".08"/>
+    <rect x="24" y="138" width="100" height="2" fill="#2563eb"/>
+    <!-- KPI cards -->
+    <rect x="24" y="162" width="208" height="82" rx="8" fill="white" opacity=".06"/>
+    <rect x="248" y="162" width="208" height="82" rx="8" fill="white" opacity=".06"/>
+    <rect x="472" y="162" width="208" height="82" rx="8" fill="white" opacity=".06"/>
+    <rect x="696" y="162" width="208" height="82" rx="8" fill="white" opacity=".06"/>
+    <rect x="920" y="162" width="256" height="82" rx="8" fill="white" opacity=".06"/>
+    <!-- Table -->
+    <rect x="24" y="300" width="1152" height="24" rx="0" fill="white" opacity=".04"/>
+    <rect x="24" y="332" width="1152" height="1" fill="white" opacity=".06"/>
+    <rect x="24" y="365" width="1152" height="1" fill="white" opacity=".06"/>
+    <rect x="24" y="398" width="1152" height="1" fill="white" opacity=".06"/>
+    <rect x="24" y="431" width="1152" height="1" fill="white" opacity=".06"/>
+    <rect x="24" y="464" width="1152" height="1" fill="white" opacity=".06"/>
+    <!-- Chart bars hint -->
+    <rect x="44" y="560" width="18" height="120" rx="3" fill="#2563eb" opacity=".4"/>
+    <rect x="68" y="590" width="18" height="90" rx="3" fill="#059669" opacity=".5"/>
+    <rect x="140" y="540" width="18" height="140" rx="3" fill="#2563eb" opacity=".4"/>
+    <rect x="164" y="570" width="18" height="110" rx="3" fill="#059669" opacity=".5"/>
+    <!-- PMO label -->
+    <text x="600" y="730" font-family="sans-serif" font-size="18" font-weight="700" fill="white" opacity=".2" text-anchor="middle">PMO · PORTFOLIO DASHBOARD</text>
+  </svg>
+</template>
+</head>
+<body>
+
+<!-- PRINT HEADER (hidden, shown only on print) -->
+<div id="print-header" class="print-header" style="display:none;">
+  <div style="display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <h1>Dashboard de Portfolio — PMO</h1>
+      <p id="print-page-label">Visão Geral — Portfolio · Página 1 de 3</p>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:11px;color:rgba(255,255,255,.5);" id="print-date"></div>
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.7);">Budget: <span id="print-budget"></span> · EAC: <span id="print-eac"></span></div>
+    </div>
+  </div>
+</div>
+
+<!-- EXECUTIVE HEADER STRIP -->
+<div class="exec-strip no-print">
+  <!-- Row 1: Badge | Title | Actions -->
+  <div class="exec-strip-top">
+    <div class="exec-badge">▶ Portfolio Report</div>
+    <div class="exec-title-block">
+      <div class="exec-title">Dashboard de Portfolio — PMO</div>
+      <div class="exec-subtitle">Portfólio Gestão de Projetos 2025 &nbsp;·&nbsp; Monitoramento Executivo</div>
+    </div>
+    <div class="exec-actions">
+      <button class="btn-pdf" onclick="exportPDF()">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12H2a1 1 0 01-1-1V3a1 1 0 011-1h12a1 1 0 011 1v8a1 1 0 01-1 1h-2"/><path d="M8 8v7M5 12l3 3 3-3"/>
+        </svg>
+        Exportar PDF
+      </button>
+      <button class="btn-icon" title="Imprimir" onclick="window.print()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 5V2h8v3"/><rect x="1" y="5" width="14" height="7" rx="1"/><path d="M4 9h8M4 12h8v2H4z"/>
+        </svg>
+      </button>
+      <button class="btn-icon" title="Atualizar" onclick="location.reload()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 4s1-3 7-3a7 7 0 11-7 7"/><path d="M1 1v3h3"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <!-- Row 2: Meta fields -->
+  <div class="exec-strip-meta">
+    <div class="meta-field">
+      <div class="meta-label">Portfólio</div>
+      <div class="meta-value">Gestão de Projetos 2025</div>
+    </div>
+    <div class="meta-field">
+      <div class="meta-label">Gestor PMO</div>
+      <div class="meta-value" id="meta-gestor">—</div>
+    </div>
+    <div class="meta-field">
+      <div class="meta-label">Total de Projetos</div>
+      <div class="meta-value">12 projetos ativos</div>
+    </div>
+    <div class="meta-field">
+      <div class="meta-label">Data de Corte</div>
+      <div class="meta-value" id="meta-corte">—</div>
+    </div>
+    <div class="meta-field">
+      <div class="meta-label">Período</div>
+      <div class="meta-value">Janeiro 2025 – Dezembro 2025</div>
+    </div>
+    <div class="meta-field">
+      <div class="meta-label">Budget Total</div>
+      <div class="meta-value" id="meta-budget">—</div>
+    </div>
+    <div class="meta-field">
+      <div class="meta-label">EAC</div>
+      <div class="meta-value" id="meta-eac">—</div>
+    </div>
+    <div class="meta-field">
+      <div class="meta-label">Tipo</div>
+      <div class="meta-value">CAPEX + OPEX</div>
+    </div>
+    <div class="meta-spacer"></div>
+    <div class="meta-month-badge" id="meta-month">— 2025</div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs-bar no-print">
+  <button class="tab-btn active" onclick="goTab(0)">
+    <span>Visão Geral</span><span class="tab-num">P1</span>
+  </button>
+  <button class="tab-btn" onclick="goTab(1)">
+    <span>Cronograma</span><span class="tab-num">P2</span>
+  </button>
+  <button class="tab-btn" onclick="goTab(2)">
+    <span>Financeiro</span><span class="tab-num">P3</span>
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 1 — VISÃO GERAL
+══════════════════════════════════════════ -->
+<div class="page active" id="page-0">
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpi-row"></div>
+
+  <!-- Health summary -->
+  <div class="section-hd">
+    <h2>Saúde do Portfolio</h2>
+    <div class="section-line"></div>
+  </div>
+  <div class="summary-box" id="health-summary"></div>
+
+  <!-- Project table -->
+  <div class="section-hd">
+    <h2>Projetos</h2>
+    <div class="section-line"></div>
+  </div>
+  <div class="proj-table-wrap">
+    <table class="proj-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Projeto</th>
+          <th>Responsável</th>
+          <th>Orçamento (R$)</th>
+          <th>EAC (R$)</th>
+          <th>Desvio</th>
+          <th>% Planejado</th>
+          <th>% Realizado</th>
+          <th>Saúde</th>
+          <th>Frequência</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="proj-tbody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 2 — CRONOGRAMA
+══════════════════════════════════════════ -->
+<div class="page" id="page-1">
+
+  <div class="kpi-row" style="grid-template-columns: repeat(4,1fr); margin-bottom:20px;" id="cron-kpis"></div>
+
+  <div class="section-hd">
+    <h2>Gantt Compilado — Portfolio 2025</h2>
+    <div class="section-line"></div>
+    <div style="font-size:11px;color:var(--ink-400);display:flex;align-items:center;gap:14px;flex-shrink:0;">
+      <span style="display:flex;align-items:center;gap:5px;"><span style="width:16px;height:6px;border-radius:3px;background:#2563eb;display:inline-block;"></span>Planejado</span>
+      <span style="display:flex;align-items:center;gap:5px;"><span style="width:16px;height:6px;border-radius:3px;background:#059669;display:inline-block;"></span>Realizado</span>
+      <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;transform:rotate(45deg);background:#f59e0b;display:inline-block;border-radius:2px;"></span>Marco</span>
+      <span style="display:flex;align-items:center;gap:5px;"><span style="width:2px;height:14px;background:var(--red);display:inline-block;"></span>Hoje</span>
+    </div>
+  </div>
+
+  <div class="gantt-card" id="gantt-card"></div>
+
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 3 — FINANCEIRO
+══════════════════════════════════════════ -->
+<div class="page" id="page-2">
+
+  <div class="fin-top" id="fin-kpis"></div>
+
+  <div class="fin-charts-row">
+    <!-- S-Curve -->
+    <div class="chart-card">
+      <div class="chart-card-hd">
+        <div class="chart-card-title">Curva S — Cumulativo do Portfolio</div>
+        <div class="chart-card-sub">Jan–Dez 2025</div>
+      </div>
+      <div class="legend-row">
+        <div class="legend-item"><div class="legend-line" style="background:#2563eb;"></div>BP Planejado</div>
+        <div class="legend-item"><div class="legend-line" style="background:#059669;"></div>Realizado</div>
+        <div class="legend-item"><div class="legend-line" style="background:#059669;border-top:2px dashed #059669;background:none;width:18px;height:0;"></div>Forecast</div>
+        <div class="legend-item"><div class="legend-line" style="background:#f59e0b;"></div>EAC</div>
+      </div>
+      <svg id="scurve-svg" width="100%" viewBox="0 0 680 280" style="overflow:visible;"></svg>
+    </div>
+
+    <!-- Monthly bars -->
+    <div class="chart-card">
+      <div class="chart-card-hd">
+        <div class="chart-card-title">Mensal — Planejado vs Realizado</div>
+        <div class="chart-card-sub">Valores em R$ (milhões)</div>
+      </div>
+      <div class="legend-row">
+        <div class="legend-item"><div class="legend-dot" style="background:#2563eb;border-radius:2px;width:12px;height:8px;"></div>Planejado</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#059669;border-radius:2px;width:12px;height:8px;"></div>Realizado</div>
+        <div class="legend-item"><div class="legend-line" style="background:#f59e0b;"></div>EAC/mês</div>
+      </div>
+      <svg id="bar-svg" width="100%" viewBox="0 0 680 280" style="overflow:visible;"></svg>
+    </div>
+  </div>
+
+  <!-- Budget deviation by project -->
+  <div class="section-hd">
+    <h2>Desvio de Orçamento por Projeto</h2>
+    <div class="section-line"></div>
+    <div style="font-size:11px;color:var(--ink-400);flex-shrink:0;">EAC vs Budget — % desvio</div>
+  </div>
+  <div class="chart-card" style="padding:20px 24px;">
+    <div id="dev-bars" style="display:flex;flex-direction:column;gap:6px;"></div>
+  </div>
+
+</div>
+
+<script>
+// ════════════════════════════════════════════
+// DATA
+// ════════════════════════════════════════════
+const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const TODAY_MONTH = 3; // Abril (0-based) — mês de referência
+
+const PROJECTS = [
+  { id:'PRJ-01', nome:'Sistema ERP', area:'TI',             resp:'Carlos Mendes',    budget:2800000, eac:3108000, planPct:48, realPct:38, start:0, end:11, risco:8,  freq:'Quinzenal',  status:'amarelo',
+    milestones:[{m:2,nome:'Kick-off'},{m:5,nome:'Go-live Módulo 1'},{m:10,nome:'Go-live Final'}] },
+  { id:'PRJ-02', nome:'Expansão Fabril', area:'Engenharia', resp:'Ana Lima',          budget:5200000, eac:5200000, planPct:45, realPct:45, start:1, end:10, risco:4,  freq:'Mensal',     status:'verde',
+    milestones:[{m:3,nome:'Fundação'},{m:7,nome:'Estrutura'},{m:10,nome:'Entrega'}] },
+  { id:'PRJ-03', nome:'CRM Digital',    area:'Marketing',  resp:'Beatriz Santos',   budget:680000,  eac:680000,  planPct:72, realPct:74, start:0, end:7,  risco:2,  freq:'Mensal',     status:'verde',
+    milestones:[{m:1,nome:'Design'},{m:4,nome:'Beta'},{m:7,nome:'Lançamento'}] },
+  { id:'PRJ-04', nome:'Automação Fiscal',area:'Financeiro', resp:'Diego Alves',      budget:940000,  eac:1060000, planPct:55, realPct:40, start:0, end:9,  risco:9,  freq:'Quinzenal',  status:'vermelho',
+    milestones:[{m:2,nome:'Mapeamento'},{m:5,nome:'Homolog.'},{m:9,nome:'Entrega'}] },
+  { id:'PRJ-05', nome:'Nova Sede',      area:'Imobiliário',resp:'Fernanda Costa',   budget:8500000, eac:8900000, planPct:30, realPct:28, start:2, end:11, risco:6,  freq:'Mensal',     status:'amarelo',
+    milestones:[{m:4,nome:'Projeto'},{m:7,nome:'Obra 50%'},{m:11,nome:'Habite-se'}] },
+  { id:'PRJ-06', nome:'Migração Cloud', area:'TI',          resp:'Hugo Ribeiro',     budget:1200000, eac:1140000, planPct:60, realPct:63, start:1, end:8,  risco:3,  freq:'Semanal',    status:'verde',
+    milestones:[{m:2,nome:'Arquitetura'},{m:5,nome:'Migração DB'},{m:8,nome:'Cut-over'}] },
+  { id:'PRJ-07', nome:'Programa ESG',  area:'Sustentab.',  resp:'Lucia Ferreira',   budget:320000,  eac:320000,  planPct:50, realPct:50, start:0, end:11, risco:2,  freq:'Bimestral',  status:'verde',
+    milestones:[{m:3,nome:'Diagnóstico'},{m:7,nome:'Relatório'},{m:11,nome:'Certificação'}] },
+  { id:'PRJ-08', nome:'Novo Produto X', area:'P&D',         resp:'Rafael Souza',     budget:1750000, eac:2100000, planPct:35, realPct:22, start:0, end:11, risco:10, freq:'Quinzenal',  status:'vermelho',
+    milestones:[{m:3,nome:'Protótipo'},{m:7,nome:'Testes'},{m:11,nome:'Lançamento'}] },
+  { id:'PRJ-09', nome:'Reestr. Comercial',area:'Vendas',   resp:'Mariana Pinto',    budget:560000,  eac:560000,  planPct:80, realPct:82, start:0, end:6,  risco:3,  freq:'Mensal',     status:'verde',
+    milestones:[{m:1,nome:'Diagnóstico'},{m:3,nome:'Implant.'},{m:6,nome:'Entrega'}] },
+  { id:'PRJ-10', nome:'Digitalização RH',area:'RH',        resp:'Tiago Neves',      budget:480000,  eac:520000,  planPct:42, realPct:35, start:1, end:9,  risco:5,  freq:'Mensal',     status:'amarelo',
+    milestones:[{m:3,nome:'Módulo I'},{m:6,nome:'Módulo II'},{m:9,nome:'Entrega'}] },
+  { id:'PRJ-11', nome:'Melhoria Logíst.',area:'Operações', resp:'Sandra Lima',      budget:760000,  eac:760000,  planPct:65, realPct:66, start:0, end:8,  risco:3,  freq:'Quinzenal',  status:'verde',
+    milestones:[{m:2,nome:'Mapeamento'},{m:5,nome:'Implant.'},{m:8,nome:'Entrega'}] },
+  { id:'PRJ-12', nome:'Compliance LGPD', area:'Jurídico',  resp:'Paulo Moreira',    budget:290000,  eac:290000,  planPct:70, realPct:72, start:0, end:5,  risco:2,  freq:'Bimestral',  status:'verde',
+    milestones:[{m:2,nome:'Mapeamento'},{m:4,nome:'Adequação'},{m:5,nome:'Entrega'}] },
+];
+
+// Monthly planned spend per project (distribute budget across months)
+function genMonthlyPlan(p) {
+  const dur = p.end - p.start + 1;
+  const months = new Array(12).fill(0);
+  // Bell-ish distribution
+  for (let i = p.start; i <= p.end; i++) {
+    const rel = (i - p.start) / Math.max(1, dur - 1);
+    const w = Math.sin(rel * Math.PI) * 1.4 + 0.4;
+    months[i] = w;
+  }
+  const sum = months.reduce((a, b) => a + b, 0);
+  return months.map(v => Math.round(v / sum * p.budget));
+}
+
+function genMonthlyReal(plan, p) {
+  const real = new Array(12).fill(null);
+  const ratio = p.realPct / p.planPct;
+  for (let i = 0; i < 12; i++) {
+    if (i > TODAY_MONTH) break;
+    if (i < p.start || i > p.end) continue;
+    const noise = 0.88 + Math.random() * 0.28;
+    real[i] = Math.round(plan[i] * ratio * noise);
+  }
+  return real;
+}
+
+function genMonthlyForecast(plan, real, p) {
+  const fc = real.slice();
+  const ratio = (p.eac / p.budget);
+  for (let i = TODAY_MONTH + 1; i <= p.end; i++) {
+    fc[i] = Math.round(plan[i] * ratio);
+  }
+  return fc;
+}
+
+// Build dataset
+Math.seedrandom = (s) => { let seed = s; return () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }; };
+let rng = (seed) => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+let _seed = 42;
+Math.seededRand = () => { _seed = (_seed * 9301 + 49297) % 233280; return _seed / 233280; };
+Math.random = Math.seededRand; // deterministic
+
+const projData = PROJECTS.map(p => {
+  const plan = genMonthlyPlan(p);
+  const real = genMonthlyReal(plan, p);
+  const fc = genMonthlyForecast(plan, real, p);
+  return { ...p, monthPlan: plan, monthReal: real, monthFc: fc };
+});
+
+// Aggregate
+function sumArr(arr) { return arr.reduce((a, b) => (a || 0) + (b || 0), 0); }
+function sumArrNulls(arr) {
+  let s = 0, hasVal = false;
+  arr.forEach(v => { if (v !== null) { s += v; hasVal = true; } });
+  return hasVal ? s : null;
+}
+
+const totalBudget = projData.reduce((s, p) => s + p.budget, 0);
+const totalEAC    = projData.reduce((s, p) => s + p.eac, 0);
+const totalReal   = projData.reduce((s, p) => {
+  const r = p.monthReal.filter(v => v !== null);
+  return s + r.reduce((a, b) => a + b, 0);
+}, 0);
+const totalPlan   = projData.reduce((s, p) => {
+  const pln = p.monthPlan.slice(0, TODAY_MONTH + 1);
+  return s + pln.reduce((a, b) => a + b, 0);
+}, 0);
+
+const desvioOrc = (totalEAC - totalBudget) / totalBudget * 100;
+const avgSPI    = projData.reduce((s, p) => s + (p.realPct / Math.max(1, p.planPct)), 0) / projData.length;
+const avgRisco  = projData.reduce((s, p) => s + p.risco, 0) / projData.length;
+const cpi       = totalReal / Math.max(1, totalPlan);
+
+const verde     = projData.filter(p => p.status === 'verde').length;
+const amarelo   = projData.filter(p => p.status === 'amarelo').length;
+const vermelho  = projData.filter(p => p.status === 'vermelho').length;
+
+// Monthly aggregates
+const portMonthPlan = MONTHS.map((_, i) => projData.reduce((s, p) => s + p.monthPlan[i], 0));
+const portMonthReal = MONTHS.map((_, i) => {
+  const vals = projData.map(p => p.monthReal[i]).filter(v => v !== null);
+  return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+});
+const portMonthFc   = MONTHS.map((_, i) => {
+  const vals = projData.map(p => p.monthFc[i]).filter(v => v !== null);
+  return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+});
+
+// Cumulative
+function cumArr(arr, useNull = false) {
+  let sum = 0;
+  return arr.map(v => {
+    if (useNull && v === null) return null;
+    sum += (v || 0);
+    return sum;
+  });
+}
+const cumPlan  = cumArr(portMonthPlan);
+const cumReal  = MONTHS.map((_, i) => {
+  if (portMonthReal[i] === null) return null;
+  return portMonthReal.slice(0, i + 1).filter(v => v !== null).reduce((a, b) => a + b, 0);
+});
+const cumFc    = MONTHS.map((_, i) => {
+  if (i <= TODAY_MONTH) return cumReal[TODAY_MONTH];
+  const prev = portMonthFc.slice(TODAY_MONTH + 1, i + 1).filter(v => v !== null).reduce((a, b) => a + b, 0);
+  return (cumReal[TODAY_MONTH] || 0) + prev;
+});
+const cumEAC = cumArr(MONTHS.map((_, i) => {
+  // EAC as budget * eac/budget ratio distributed
+  return projData.reduce((s, p) => s + Math.round(p.monthPlan[i] * (p.eac / p.budget)), 0);
+}));
+
+// ════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════
+const fmt = (n) => 'R$ ' + (n >= 1e6 ? (n/1e6).toFixed(2).replace('.', ',') + 'M' : (n/1e3).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + 'k');
+const fmtM = (n) => n >= 1e6 ? (n/1e6).toFixed(1).replace('.', ',') + 'M' : (n/1e3).toFixed(0) + 'k';
+
+function pctColor(spi) {
+  if (spi >= 0.95) return 'var(--green)';
+  if (spi >= 0.8) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+// ════════════════════════════════════════════
+// PAGE 1
+// ════════════════════════════════════════════
+function renderKPIs() {
+  const row = document.getElementById('kpi-row');
+  const kpis = [
+    { label:'Orçamento Total', value: 'R$ ' + (totalBudget/1e6).toFixed(2).replace('.',',') + 'M',
+      sub: '12 projetos ativos', accent: '#2563eb' },
+    { label:'Desvio de Orçamento', value: (desvioOrc >= 0 ? '+' : '') + desvioOrc.toFixed(1) + '%',
+      sub: 'EAC vs Budget', delta: desvioOrc <= 0 ? 'pos' : desvioOrc < 5 ? 'neu' : 'neg',
+      deltaText: (desvioOrc >= 0 ? '+' : '') + fmtM(totalEAC - totalBudget),
+      accent: desvioOrc <= 0 ? 'var(--green)' : desvioOrc < 5 ? 'var(--amber)' : 'var(--red)' },
+    { label:'Índice de Prazo (SPI)', value: avgSPI.toFixed(2),
+      sub: 'Média do portfolio',
+      delta: avgSPI >= 0.95 ? 'pos' : avgSPI >= 0.8 ? 'neu' : 'neg',
+      deltaText: avgSPI >= 0.95 ? 'No prazo' : avgSPI >= 0.8 ? 'Alerta' : 'Atrasado',
+      accent: pctColor(avgSPI) },
+    { label:'CPI (Custo)', value: cpi.toFixed(2),
+      sub: 'Realizado / Planejado',
+      delta: cpi >= 0.95 ? 'pos' : cpi >= 0.8 ? 'neu' : 'neg',
+      deltaText: cpi >= 1 ? 'Sob controle' : cpi >= 0.8 ? 'Alerta' : 'Crítico',
+      accent: pctColor(cpi) },
+    { label:'Índice de Risco', value: avgRisco.toFixed(1) + '/10',
+      sub: 'Score médio do portfolio',
+      delta: avgRisco <= 4 ? 'pos' : avgRisco <= 7 ? 'neu' : 'neg',
+      deltaText: avgRisco <= 4 ? 'Baixo' : avgRisco <= 7 ? 'Médio' : 'Alto',
+      accent: avgRisco <= 4 ? 'var(--green)' : avgRisco <= 7 ? 'var(--amber)' : 'var(--red)' },
+  ];
+  row.innerHTML = kpis.map(k => `
+    <div class="kpi-card" style="--accent:${k.accent}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-sub">
+        ${k.delta ? `<span class="kpi-delta ${k.delta}">${k.deltaText}</span>` : ''}
+        ${k.sub}
+      </div>
+    </div>`).join('');
+}
+
+function renderHealthSummary() {
+  const el = document.getElementById('health-summary');
+  const delayed = projData.filter(p => p.realPct < p.planPct * 0.85).length;
+  const overBudget = projData.filter(p => p.eac > p.budget * 1.02).length;
+  el.innerHTML = `
+    <div class="s-box" style="border-left: 3px solid var(--green);">
+      <div class="s-box-val" style="color:var(--green)">${verde}</div>
+      <div class="s-box-lab">🟢 Em dia</div>
+      <div style="font-size:11.5px;color:var(--ink-600)">Projetos no prazo e orçamento</div>
+    </div>
+    <div class="s-box" style="border-left: 3px solid var(--amber);">
+      <div class="s-box-val" style="color:var(--amber)">${amarelo}</div>
+      <div class="s-box-lab">🟡 Atenção</div>
+      <div style="font-size:11.5px;color:var(--ink-600)">Requerem monitoramento próximo</div>
+    </div>
+    <div class="s-box" style="border-left: 3px solid var(--red);">
+      <div class="s-box-val" style="color:var(--red)">${vermelho}</div>
+      <div class="s-box-lab">🔴 Crítico</div>
+      <div style="font-size:11.5px;color:var(--ink-600)">Ação imediata necessária</div>
+    </div>
+    <div class="s-box" style="border-left: 3px solid var(--blue);">
+      <div class="s-box-val" style="color:var(--blue)">${delayed}</div>
+      <div class="s-box-lab">⏱ Com atraso</div>
+      <div style="font-size:11.5px;color:var(--ink-600)">Realizando abaixo do planejado</div>
+    </div>
+    <div class="s-box" style="border-left: 3px solid var(--red);">
+      <div class="s-box-val" style="color:var(--red)">${overBudget}</div>
+      <div class="s-box-lab">💰 Acima do Orçamento</div>
+      <div style="font-size:11.5px;color:var(--ink-600)">EAC > Budget aprovado</div>
+    </div>
+    <div class="s-box" style="border-left: 3px solid var(--amber);">
+      <div class="s-box-val" style="color:var(--amber)">${projData.filter(p=>p.risco >= 8).length}</div>
+      <div class="s-box-lab">⚠️ Alto Risco</div>
+      <div style="font-size:11.5px;color:var(--ink-600)">Score de risco ≥ 8/10</div>
+    </div>
+  `;
+}
+
+function renderProjTable() {
+  const tbody = document.getElementById('proj-tbody');
+  tbody.innerHTML = projData.map(p => {
+    const desvio = (p.eac - p.budget) / p.budget * 100;
+    const desvioClass = desvio > 5 ? 'eac-over' : desvio < -2 ? 'eac-under' : 'eac-ok';
+    const healthColor = p.status === 'verde' ? 'var(--green)' : p.status === 'amarelo' ? 'var(--amber)' : 'var(--red)';
+    const spiP = p.realPct / Math.max(1, p.planPct);
+    const planBarColor = '#2563eb';
+    const realBarColor = spiP >= 0.95 ? 'var(--green)' : spiP >= 0.8 ? 'var(--amber)' : 'var(--red)';
+
+    return `
+    <tr>
+      <td><span class="proj-id">${p.id}</span></td>
+      <td>
+        <div class="proj-name">${p.nome}</div>
+        <div class="proj-area">${p.area}</div>
+      </td>
+      <td style="font-size:12px;color:var(--ink-600)">${p.resp}</td>
+      <td><span class="budget-cell">${fmt(p.budget)}</span></td>
+      <td><span class="budget-cell ${desvioClass}">${fmt(p.eac)}</span></td>
+      <td>
+        <span class="kpi-delta ${desvio > 5 ? 'neg' : desvio < -2 ? 'pos' : 'neu'}">
+          ${desvio >= 0 ? '+' : ''}${desvio.toFixed(1)}%
+        </span>
+      </td>
+      <td style="min-width:100px;">
+        <div style="font-size:11px;font-weight:600;color:${planBarColor};margin-bottom:3px;">${p.planPct}%</div>
+        <div class="mini-bar-track">
+          <div class="mini-bar-fill" style="width:${p.planPct}%;background:${planBarColor};"></div>
+        </div>
+      </td>
+      <td style="min-width:100px;">
+        <div style="font-size:11px;font-weight:600;color:${realBarColor};margin-bottom:3px;">${p.realPct}%</div>
+        <div class="mini-bar-track">
+          <div class="mini-bar-fill" style="width:${p.realPct}%;background:${realBarColor};"></div>
+        </div>
+      </td>
+      <td>
+        <span class="health-dot" style="background:${healthColor};"></span>
+        <span style="font-size:11px;font-weight:600;color:${healthColor};">
+          ${p.status === 'verde' ? 'Verde' : p.status === 'amarelo' ? 'Amarelo' : 'Vermelho'}
+        </span>
+      </td>
+      <td><span class="freq-chip">${p.freq}</span></td>
+      <td>
+        <span class="status-pill" style="background:${p.status === 'verde' ? 'var(--green-l)' : p.status === 'amarelo' ? 'var(--amber-l)' : 'var(--red-l)'};color:${healthColor};">
+          <span style="width:6px;height:6px;border-radius:50%;background:${healthColor};"></span>
+          ${p.status === 'verde' ? 'No prazo' : p.status === 'amarelo' ? 'Atenção' : 'Crítico'}
+        </span>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════
+// PAGE 2 — GANTT
+// ════════════════════════════════════════════
+function renderCronKPIs() {
+  const el = document.getElementById('cron-kpis');
+  const onTrack = projData.filter(p => p.realPct >= p.planPct * 0.9).length;
+  const late = projData.filter(p => p.realPct < p.planPct * 0.85).length;
+  const totalMilestones = projData.reduce((s, p) => s + p.milestones.length, 0);
+  const completedMilestones = projData.reduce((s, p) =>
+    s + p.milestones.filter(m => m.m < TODAY_MONTH).length, 0);
+
+  el.innerHTML = [
+    { label:'Projetos no Prazo', value: onTrack + '/' + projData.length, accent:'var(--green)', sub:'SPI ≥ 0.90' },
+    { label:'Projetos com Atraso', value: late + '/' + projData.length, accent:'var(--red)', sub:'SPI < 0.85' },
+    { label:'Marcos Concluídos', value: completedMilestones + '/' + totalMilestones, accent:'var(--amber)', sub:'Entregas realizadas' },
+    { label:'Mês de Referência', value: MONTHS[TODAY_MONTH] + ' 2025', accent:'var(--blue)', sub:'Data base: Abr/25' },
+  ].map(k => `
+    <div class="kpi-card" style="--accent:${k.accent}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value" style="font-size:22px;">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>`).join('');
+}
+
+function renderGantt() {
+  const card = document.getElementById('gantt-card');
+  const MONTH_COLS = 12;
+  const todayPct = ((TODAY_MONTH + 0.5) / MONTH_COLS) * 100;
+
+  // Header
+  let html = `
+    <div class="gantt-header">
+      <div class="gantt-header-label">Projeto</div>
+      <div class="gantt-months" style="display:grid;grid-template-columns:repeat(${MONTH_COLS},1fr);">
+        ${MONTHS.map((m, i) => `
+          <div class="gantt-month-cell" style="${i === TODAY_MONTH ? 'color:var(--red);font-weight:800;' : ''}">
+            ${m}
+          </div>`).join('')}
+      </div>
+    </div>`;
+
+  // Rows
+  projData.forEach(p => {
+    const durCols = p.end - p.start + 1;
+    const barLeft = (p.start / MONTH_COLS) * 100;
+    const barWidth = (durCols / MONTH_COLS) * 100;
+    const realWidth = barWidth * (p.realPct / 100);
+    const healthColor = p.status === 'verde' ? '#059669' : p.status === 'amarelo' ? '#d97706' : '#dc2626';
+
+    const milestonesHtml = p.milestones.map(ms => {
+      const pos = ((ms.m + 0.5) / MONTH_COLS) * 100;
+      const isDone = ms.m < TODAY_MONTH;
+      const color = isDone ? '#059669' : ms.m === TODAY_MONTH ? '#d97706' : '#2563eb';
+      return `
+        <div class="gantt-milestone"
+             style="left:${pos}%;background:${isDone ? color : 'white'};border-color:${color};"
+             title="${ms.nome}">
+        </div>
+        <div style="position:absolute;left:${pos}%;transform:translateX(-50%);top:50%;margin-top:14px;
+                    font-size:9px;color:${color};font-weight:600;white-space:nowrap;line-height:1;">
+          ${ms.nome.length > 10 ? ms.nome.substring(0,10)+'…' : ms.nome}
+        </div>`;
+    }).join('');
+
+    html += `
+      <div class="gantt-row">
+        <div class="gantt-row-label">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:${healthColor};flex-shrink:0;"></span>
+            <span class="gantt-row-name">${p.nome}</span>
+          </div>
+          <div class="gantt-row-resp">${p.resp}</div>
+        </div>
+        <div class="gantt-row-chart">
+          <!-- Today line -->
+          <div class="gantt-today-line" style="left:${todayPct}%;"></div>
+
+          <!-- BG bar (planned) -->
+          <div class="gantt-bar-bg"
+               style="left:${barLeft}%;width:${barWidth}%;background:#dbeafe;">
+          </div>
+
+          <!-- Real bar -->
+          <div class="gantt-bar-real"
+               style="left:${barLeft}%;width:${realWidth}%;background:${healthColor};">
+          </div>
+
+          <!-- Milestones -->
+          ${milestonesHtml}
+        </div>
+      </div>`;
+  });
+
+  card.innerHTML = html;
+}
+
+// ════════════════════════════════════════════
+// PAGE 3 — FINANCIAL
+// ════════════════════════════════════════════
+function renderFinKPIs() {
+  const el = document.getElementById('fin-kpis');
+  const totalForecast = projData.reduce((s, p) => {
+    const r = p.monthFc.filter(v => v !== null);
+    return s + r.reduce((a, b) => a + b, 0);
+  }, 0);
+
+  el.innerHTML = [
+    { label:'Budget Total',     value:'R$ '+(totalBudget/1e6).toFixed(2).replace('.',',')+'M', sub:'Aprovado baseline', accent:'var(--blue)' },
+    { label:'Realizado até Abr',value:'R$ '+(totalReal/1e6).toFixed(2).replace('.',',')+'M',   sub:`${(totalReal/totalBudget*100).toFixed(1)}% do orçamento`, accent:'var(--green)' },
+    { label:'EAC (Projeção Final)',value:'R$ '+(totalEAC/1e6).toFixed(2).replace('.',',')+'M', sub:`Desvio: ${desvioOrc >= 0?'+':''}${desvioOrc.toFixed(1)}%`,
+      accent: desvioOrc <= 2 ? 'var(--green)' : desvioOrc <= 8 ? 'var(--amber)' : 'var(--red)' },
+    { label:'Forecast 2025',    value:'R$ '+(totalForecast/1e6).toFixed(2).replace('.',',')+'M', sub:'Estimativa de conclusão', accent:'var(--amber)' },
+  ].map(k => `
+    <div class="kpi-card" style="--accent:${k.accent}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value" style="font-size:20px;">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>`).join('');
+}
+
+function renderSCurve() {
+  const svg = document.getElementById('scurve-svg');
+  const W = 680, H = 280, PL = 64, PR = 16, PT = 20, PB = 36;
+  const cW = W - PL - PR, cH = H - PT - PB;
+  const N = 12;
+
+  const allVals = [...cumPlan, ...cumReal.filter(v=>v!==null), ...cumFc.filter(v=>v!==null), ...cumEAC].filter(Boolean);
+  const yMax = Math.max(...allVals) * 1.08;
+
+  const X = i => PL + cW * (i / (N-1));
+  const Y = v => PT + cH * (1 - v / yMax);
+
+  let out = '';
+
+  // Grid lines
+  for (let g = 0; g <= 4; g++) {
+    const y = PT + cH * (g/4);
+    const v = yMax * (1 - g/4);
+    out += `<line x1="${PL}" y1="${y.toFixed(0)}" x2="${W-PR}" y2="${y.toFixed(0)}" stroke="#e8edf4" stroke-width="1"/>`;
+    out += `<text x="${PL-6}" y="${(y+4).toFixed(0)}" font-size="10" fill="#94a3b8" text-anchor="end" font-family="DM Sans,sans-serif">${fmtM(v)}</text>`;
+  }
+
+  // X labels
+  MONTHS.forEach((m, i) => {
+    out += `<text x="${X(i).toFixed(0)}" y="${H-6}" font-size="10" fill="#94a3b8" text-anchor="middle" font-family="DM Sans,sans-serif">${m}</text>`;
+  });
+
+  // Today marker
+  const tx = X(TODAY_MONTH);
+  out += `<line x1="${tx.toFixed(0)}" y1="${PT}" x2="${tx.toFixed(0)}" y2="${PT+cH}" stroke="var(--red)" stroke-width="1.2" stroke-dasharray="4 3" opacity=".6"/>`;
+
+  // Paths
+  function pathOf(data, nullCheck) {
+    const pts = data.map((v, i) => nullCheck(v) ? null : {x:X(i),y:Y(v)}).filter(Boolean);
+    if (pts.length < 2) return '';
+    let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+    for (let i=1;i<pts.length;i++){
+      const p0=pts[i-1],p1=pts[i];
+      const mx=(p0.x+p1.x)/2;
+      d+=` C${mx.toFixed(1)},${p0.y.toFixed(1)} ${mx.toFixed(1)},${p1.y.toFixed(1)} ${p1.x.toFixed(1)},${p1.y.toFixed(1)}`;
+    }
+    return d;
+  }
+
+  // EAC cumulative
+  out += `<path d="${pathOf(cumEAC,v=>!v)}" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="5 4"/>`;
+
+  // Plan
+  out += `<path d="${pathOf(cumPlan,v=>!v)}" fill="none" stroke="#2563eb" stroke-width="2.2"/>`;
+
+  // Real (past) + Forecast (future, dashed)
+  const realPts = cumReal.map((v, i) => v !== null ? {x:X(i),y:Y(v)} : null).filter(Boolean);
+  const fcPts = cumFc.map((v, i) => i > TODAY_MONTH && v !== null ? {x:X(i),y:Y(v)} : null).filter(Boolean);
+
+  if (realPts.length >= 2) {
+    let d = `M${realPts[0].x.toFixed(1)},${realPts[0].y.toFixed(1)}`;
+    for (let i=1;i<realPts.length;i++){
+      const p0=realPts[i-1],p1=realPts[i];
+      const mx=(p0.x+p1.x)/2;
+      d+=` C${mx.toFixed(1)},${p0.y.toFixed(1)} ${mx.toFixed(1)},${p1.y.toFixed(1)} ${p1.x.toFixed(1)},${p1.y.toFixed(1)}`;
+    }
+    out += `<path d="${d}" fill="none" stroke="#059669" stroke-width="2.4"/>`;
+  }
+
+  if (realPts.length && fcPts.length) {
+    const junction = realPts[realPts.length-1];
+    const allFc = [junction, ...fcPts];
+    let d = `M${allFc[0].x.toFixed(1)},${allFc[0].y.toFixed(1)}`;
+    for (let i=1;i<allFc.length;i++){
+      const p0=allFc[i-1],p1=allFc[i];
+      const mx=(p0.x+p1.x)/2;
+      d+=` C${mx.toFixed(1)},${p0.y.toFixed(1)} ${mx.toFixed(1)},${p1.y.toFixed(1)} ${p1.x.toFixed(1)},${p1.y.toFixed(1)}`;
+    }
+    out += `<path d="${d}" fill="none" stroke="#059669" stroke-width="2.4" stroke-dasharray="6 4"/>`;
+  }
+
+  // Dots
+  cumPlan.forEach((v, i) => {
+    out += `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="3.2" fill="white" stroke="#2563eb" stroke-width="1.8"/>`;
+  });
+  cumReal.forEach((v, i) => {
+    if (v === null) return;
+    out += `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="3.6" fill="white" stroke="#059669" stroke-width="2"/>`;
+  });
+
+  svg.innerHTML = out;
+}
+
+function renderBarChart() {
+  const svg = document.getElementById('bar-svg');
+  const W = 680, H = 280, PL = 56, PR = 16, PT = 20, PB = 36;
+  const cW = W - PL - PR, cH = H - PT - PB;
+  const N = 12;
+
+  const allVals = [...portMonthPlan, ...portMonthReal.filter(v=>v!==null), ...portMonthFc.filter(v=>v!==null)].filter(Boolean);
+  const yMax = Math.max(...allVals) * 1.18;
+
+  const barW = (cW / N) * 0.36;
+  const groupW = cW / N;
+  const X = (i, offset) => PL + groupW * i + groupW/2 - barW + offset;
+  const Y = v => PT + cH * (1 - v/yMax);
+  const BH = v => cH * (v/yMax);
+
+  let out = '';
+
+  // Grid
+  for (let g=0;g<=4;g++) {
+    const y = PT + cH*(g/4);
+    const v = yMax*(1-g/4);
+    out += `<line x1="${PL}" y1="${y.toFixed(0)}" x2="${W-PR}" y2="${y.toFixed(0)}" stroke="#e8edf4" stroke-width="1"/>`;
+    out += `<text x="${PL-5}" y="${(y+4).toFixed(0)}" font-size="10" fill="#94a3b8" text-anchor="end" font-family="DM Sans,sans-serif">${fmtM(v)}</text>`;
+  }
+
+  // Bars
+  portMonthPlan.forEach((v, i) => {
+    out += `<rect x="${X(i,0).toFixed(1)}" y="${Y(v).toFixed(1)}" width="${barW.toFixed(1)}" height="${BH(v).toFixed(1)}" fill="#bfdbfe" rx="2"/>`;
+  });
+  portMonthReal.forEach((v, i) => {
+    if (!v) return;
+    out += `<rect x="${X(i,barW+2).toFixed(1)}" y="${Y(v).toFixed(1)}" width="${barW.toFixed(1)}" height="${BH(v).toFixed(1)}" fill="#059669" rx="2"/>`;
+  });
+  portMonthFc.forEach((v, i) => {
+    if (!v || i <= TODAY_MONTH) return;
+    out += `<rect x="${X(i,barW+2).toFixed(1)}" y="${Y(v).toFixed(1)}" width="${barW.toFixed(1)}" height="${BH(v).toFixed(1)}" fill="#d1fae5" rx="2" stroke="#059669" stroke-width="1"/>`;
+  });
+
+  // EAC line
+  const eacPts = portMonthPlan.map((v, i) => ({
+    x: X(i, barW) + barW/2, // center of group
+    y: Y(Math.round(v * (totalEAC/totalBudget)))
+  }));
+  let lineD = `M${eacPts[0].x.toFixed(1)},${eacPts[0].y.toFixed(1)}`;
+  eacPts.slice(1).forEach(p => { lineD += ` L${p.x.toFixed(1)},${p.y.toFixed(1)}`; });
+  out += `<path d="${lineD}" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="5 3"/>`;
+
+  // Today marker
+  const tx = PL + groupW * TODAY_MONTH + groupW/2;
+  out += `<line x1="${tx.toFixed(0)}" y1="${PT}" x2="${tx.toFixed(0)}" y2="${PT+cH}" stroke="var(--red)" stroke-width="1.2" stroke-dasharray="4 3" opacity=".5"/>`;
+
+  // X labels
+  MONTHS.forEach((m, i) => {
+    const lx = PL + groupW*i + groupW/2;
+    out += `<text x="${lx.toFixed(0)}" y="${H-6}" font-size="10" fill="#94a3b8" text-anchor="middle" font-family="DM Sans,sans-serif">${m}</text>`;
+  });
+
+  svg.innerHTML = out;
+}
+
+function renderDevBars() {
+  const el = document.getElementById('dev-bars');
+  const sorted = [...projData].sort((a, b) => {
+    const da = (a.eac - a.budget)/a.budget*100;
+    const db = (b.eac - b.budget)/b.budget*100;
+    return db - da;
+  });
+  const maxDev = Math.max(...sorted.map(p => Math.abs((p.eac-p.budget)/p.budget*100))) || 10;
+
+  el.innerHTML = sorted.map(p => {
+    const dev = (p.eac - p.budget) / p.budget * 100;
+    const width = Math.abs(dev) / maxDev * 100;
+    const color = dev > 5 ? 'var(--red)' : dev > 1 ? 'var(--amber)' : 'var(--green)';
+    return `
+      <div class="dev-row">
+        <div class="dev-row-name" title="${p.nome}">${p.nome}</div>
+        <div class="dev-bar-track">
+          <div class="dev-bar-fill" style="width:${width}%;background:${color};"></div>
+        </div>
+        <div class="dev-pct" style="color:${color};">
+          ${dev >= 0 ? '+' : ''}${dev.toFixed(1)}%
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════
+function goTab(n) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i===n));
+  document.querySelectorAll('.page').forEach((p, i) => p.classList.toggle('active', i===n));
+  // Update print header page label
+  const labels = ['Visão Geral', 'Cronograma', 'Financeiro'];
+  const ph = document.getElementById('print-page-label');
+  if (ph) ph.textContent = 'Página ' + (n+1) + ' de 3 — ' + labels[n];
+}
+
+function exportPDF() {
+  // Show the print header for current page
+  const activeIdx = [...document.querySelectorAll('.page')].findIndex(p => p.classList.contains('active'));
+  const labels = ['Visão Geral — Portfolio', 'Cronograma do Portfolio', 'Financeiro do Portfolio'];
+  const ph = document.getElementById('print-page-label');
+  if (ph) ph.textContent = labels[activeIdx] + '  ·  Página ' + (activeIdx+1) + ' de 3';
+  document.getElementById('print-header').style.display = 'block';
+  window.print();
+  setTimeout(() => { document.getElementById('print-header').style.display = 'none'; }, 500);
+}
+
+function init() {
+  const now = new Date();
+
+  // Meta fields
+  const monthName = now.toLocaleDateString('pt-BR', {month:'long', year:'numeric'});
+  const monthShort = now.toLocaleDateString('pt-BR', {month:'long'}).charAt(0).toUpperCase() +
+    now.toLocaleDateString('pt-BR', {month:'long'}).slice(1);
+  document.getElementById('meta-corte').textContent =
+    now.toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
+  document.getElementById('meta-budget').textContent = 'R$ ' + (totalBudget/1e6).toFixed(2).replace('.',',') + ' M';
+  document.getElementById('meta-eac').textContent = 'R$ ' + (totalEAC/1e6).toFixed(2).replace('.',',') + ' M';
+  document.getElementById('meta-month').textContent = monthShort + ' ' + now.getFullYear();
+  document.getElementById('meta-gestor').textContent = 'Escritório de Projetos';
+
+  // Print header fields
+  const pd = document.getElementById('print-date');
+  const pb = document.getElementById('print-budget');
+  const pe = document.getElementById('print-eac');
+  if (pd) pd.textContent = 'Data de corte: ' + now.toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
+  if (pb) pb.textContent = 'R$ ' + (totalBudget/1e6).toFixed(2).replace('.',',') + ' M';
+  if (pe) pe.textContent = 'R$ ' + (totalEAC/1e6).toFixed(2).replace('.',',') + ' M';
+
+  renderKPIs();
+  renderHealthSummary();
+  renderProjTable();
+  renderCronKPIs();
+  renderGantt();
+  renderFinKPIs();
+  renderSCurve();
+  renderBarChart();
+  renderDevBars();
+}
+
+init();
+</script>
+</body>
+</html>
