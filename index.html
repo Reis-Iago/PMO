@@ -1,10 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PMO — Dashboard de Portfolio</title>
+<title>Relatório Executivo de Portfólio</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -34,12 +35,156 @@
 }
 
 @media print {
-  body { background: white !important; }
-  .header-strip, .tabs-bar, .page:not(.active) { display: none !important; }
+  @page { size: A3 landscape; margin: 8mm; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+  html, body { background: white !important; margin: 0 !important; padding: 0 !important; }
+  .exec-strip, .tabs-bar, .page:not(.active), #upload-overlay, button { display: none !important; }
   .page.active { display: block !important; padding: 0 !important; }
   .print-header { display: block !important; }
   .no-print { display: none !important; }
-  .kpi-card, .proj-table-wrap, .gantt-card, .chart-card, .s-box { break-inside: avoid; }
+  .kpi-card, .proj-table-wrap, .gantt-card, .chart-card, .s-box { break-inside: avoid; page-break-inside: avoid; }
+
+  body.pdf-export { display: block !important; font-size: 9px; overflow: hidden; }
+  body.pdf-export .print-header { display: none !important; }
+  body.pdf-export .exec-strip.no-print { display: block !important; }
+  body.pdf-export .exec-strip-top { height: 34px; padding: 0 12px; gap: 10px; }
+  body.pdf-export .exec-title { font-size: 12px; }
+  body.pdf-export .exec-subtitle { font-size: 8px; }
+  body.pdf-export .exec-badge { font-size: 8px; padding: 3px 8px; }
+  body.pdf-export .exec-actions { display: none !important; }
+  body.pdf-export .exec-strip-meta { height: 24px; padding: 0 12px; overflow: hidden; }
+  body.pdf-export .meta-field { padding-right: 10px; margin-right: 10px; }
+  body.pdf-export .meta-label { font-size: 7px; }
+  body.pdf-export .meta-value, body.pdf-export .meta-month-badge { font-size: 8.5px; }
+  body.pdf-export .tabs-bar.no-print { display: flex !important; height: 24px; padding: 0; background: transparent; }
+  body.pdf-export .tabs-bar .tab-btn { display: none !important; }
+  body.pdf-export .tabs-bar .tab-btn.active { display: flex !important; height: 24px; font-size: 9px; }
+  body.pdf-export .page.active { padding: 8px 12px 0 !important; overflow: hidden; }
+  body.pdf-export .overview-layout, body.pdf-export .overview-main { gap: 10px !important; }
+  body.pdf-export .overview-charts-row { grid-template-columns: .95fr 1.35fr 1.05fr 1.05fr !important; gap: 6px !important; }
+  body.pdf-export .overview-pie-card { padding: 8px !important; min-height: 150px !important; }
+  body.pdf-export .overview-chart-grid { min-height: 112px !important; }
+  body.pdf-export .pie-wrap { min-height: 112px !important; }
+  body.pdf-export .portfolio-budget-overview { min-height: 150px !important; padding: 8px 12px !important; overflow:hidden !important; }
+  body.pdf-export .budget-topdown { min-height: 150px !important; padding: 8px 12px !important; overflow:hidden !important; }
+  body.pdf-export .portfolio-budget-overview .mini-card-value { font-size: 22px !important; }
+  body.pdf-export .kpi-row, body.pdf-export .fin-top { gap: 8px !important; margin-bottom: 8px !important; }
+  body.pdf-export .finance-zone-left .fin-top { margin-bottom: 0 !important; }
+  body.pdf-export .kpi-card { padding: 8px 10px; border-radius: 7px; }
+  body.pdf-export .kpi-label, body.pdf-export .chart-card-title, body.pdf-export .fin-ref-title { font-size: 9px; color: #000; margin-bottom: 4px; }
+  body.pdf-export .kpi-value { font-size: 15px !important; margin-bottom: 3px; }
+  body.pdf-export .kpi-sub, body.pdf-export .kpi-delta { font-size: 8px; }
+  body.pdf-export .section-hd { margin-bottom: 6px; gap: 6px; }
+  body.pdf-export .section-hd h2 { font-size: 9px; }
+  body.pdf-export .summary-box { gap: 8px; margin-bottom: 8px; }
+  body.pdf-export .s-box { padding: 8px 10px; gap: 2px; }
+  body.pdf-export .s-box-icon { font-size: 12px; }
+  body.pdf-export .s-box-val { font-size: 15px; }
+  body.pdf-export .s-box-lab { font-size: 7.5px; }
+  body.pdf-export .proj-table { font-size: 8.5px; }
+  body.pdf-export .proj-table thead th { font-size: 7px; padding: 4px 6px; }
+  body.pdf-export .proj-table tbody td { padding: 4px 6px; }
+  body.pdf-export .proj-name, body.pdf-export .gantt-row-name { font-size: 8.5px; }
+  body.pdf-export .proj-area, body.pdf-export .gantt-row-resp, body.pdf-export .proj-id, body.pdf-export .freq-chip, body.pdf-export .health-dot { font-size: 7.5px; }
+  body.pdf-export .gantt-header, body.pdf-export .gantt-row { grid-template-columns: 150px 80px 1fr; }
+  body.pdf-export .gantt-header-label, body.pdf-export .gantt-month-cell { padding: 5px 8px; font-size: 7.5px; }
+  body.pdf-export .gantt-row { min-height: 24px; }
+  body.pdf-export .gantt-row-label { padding: 0 8px; }
+  body.pdf-export .gantt-progress-cell { padding: 0 8px; gap: 2px; }
+  body.pdf-export .gantt-progress-value { font-size: 7.5px; }
+  body.pdf-export .gantt-progress-track { height: 4px; }
+  body.pdf-export .gantt-bar-real { height: 8px; }
+  body.pdf-export .finance-t-grid { gap: 6px !important; }
+  body.pdf-export .chart-card { padding: 8px 10px !important; }
+  body.pdf-export .chart-card-hd { margin-bottom: 6px; }
+  body.pdf-export .chart-card-sub, body.pdf-export .legend-item, body.pdf-export .dev-row-name, body.pdf-export .dev-pct { font-size: 8px; }
+  body.pdf-export .overview-chart-grid { grid-template-columns: 1fr; gap: 0; margin-bottom: 0; min-height: 112px; }
+  body.pdf-export .pie-wrap { min-height: 112px; }
+  body.pdf-export #scurve-svg { height: 286px !important; }
+  body.pdf-export #cpi-svg, body.pdf-export #cpi-trend-svg { height: 100px !important; }
+  body.pdf-export #spi-svg, body.pdf-export #spi-trend-svg { height: 100px !important; }
+  body.pdf-export .schedule-layout { gap: 6px !important; }
+  body.pdf-export .schedule-spi-row,
+  body.pdf-export .schedule-health-row { gap: 6px !important; }
+  body.pdf-export .schedule-spi-row .chart-card,
+  body.pdf-export .schedule-health-row .chart-card { padding: 6px 8px !important; }
+  body.pdf-export .schedule-spi-row #spi-svg,
+  body.pdf-export .schedule-spi-row #spi-trend-svg { height: 82px !important; }
+  body.pdf-export .schedule-pie-svg { height: 92px !important; }
+  body.pdf-export .schedule-gantt-shell { padding: 8px !important; }
+  body.pdf-export #page-1 { height: calc(100vh - 90px); }
+  body.pdf-export #page-1 .schedule-layout { height: 100%; }
+  body.pdf-export #page-1 .schedule-gantt-shell { flex: 1 1 auto; }
+  body.pdf-export .sv-card { min-height: 0 !important; }
+  body.pdf-export .sv-head { margin-bottom: 4px !important; }
+  body.pdf-export .sv-avg { font-size: 16px !important; }
+  body.pdf-export .sv-row { margin-top: 3px !important; }
+  body.pdf-export .finance-t-grid { grid-template-columns: 1.25fr 1fr !important; }
+  body.pdf-export .finance-main-card #scurve-svg { min-height: 0 !important; }
+  body.pdf-export .finance-cpi-row { margin-top: 0 !important; }
+  body.pdf-export .finance-cpi-row .chart-card { padding: 10px 16px !important; }
+  body.pdf-export .finance-main-card .legend-item,
+  body.pdf-export .finance-main-card .chart-card-sub,
+  body.pdf-export .finance-cpi-row .chart-card-sub { font-size: 10px !important; }
+  body.pdf-export .dev-row { gap: 6px; margin-bottom: 3px; }
+  body.pdf-export .dev-bar-track { height: 6px; }
+
+  /* PDF: same print canvas used by the standardized project report. */
+  body.pdf-export {
+    width: 100% !important;
+    min-width: 0 !important;
+    zoom: 1;
+    overflow: hidden !important;
+  }
+  body.pdf-export .page.active {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 14px 20px 18px !important;
+    overflow: hidden !important;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  body.pdf-export #page-0 .proj-table { font-size: 9.6px !important; }
+  body.pdf-export #page-0 .proj-table thead th { font-size: 8px !important; padding: 7px 7px !important; }
+  body.pdf-export #page-0 .proj-table tbody td { padding: 9px 7px !important; line-height: 1.18 !important; }
+  body.pdf-export .chart-card { padding: 20px !important; }
+  body.pdf-export .chart-card-hd { margin-bottom: 16px !important; }
+  body.pdf-export .chart-card-sub, body.pdf-export .legend-item { font-size: 11px !important; }
+  body.pdf-export .kpi-row, body.pdf-export .fin-top { gap: 14px !important; margin-bottom: 10px !important; }
+  body.pdf-export .finance-t-grid { gap: 12px !important; }
+  body.pdf-export #scurve-svg { height: 362px !important; }
+  body.pdf-export #cpi-svg, body.pdf-export #cpi-trend-svg { height: 160px !important; }
+  body.pdf-export #spi-svg, body.pdf-export #spi-trend-svg { height: 160px !important; }
+  body.pdf-export .finance-zone-left,
+  body.pdf-export .finance-zone-right { height: 100% !important; }
+  body.pdf-export .finance-main-card { flex: 1 1 auto !important; }
+  body.pdf-export #page-2 .finance-t-grid { grid-template-rows: 1fr auto !important; }
+  body.pdf-export #page-2 .finance-zone-left,
+  body.pdf-export #page-2 .finance-zone-right { align-self: stretch !important; }
+  body.pdf-export #page-2 .finance-main-card,
+  body.pdf-export #page-2 .finance-project-card { flex: 1 1 auto !important; }
+  body.pdf-export .schedule-layout { gap: 12px !important; }
+  body.pdf-export .schedule-spi-row,
+  body.pdf-export .schedule-health-row { gap: 10px !important; }
+  body.pdf-export .schedule-spi-row .chart-card,
+  body.pdf-export .schedule-health-row .chart-card { padding: 8px 14px !important; }
+  body.pdf-export .schedule-spi-row #spi-svg,
+  body.pdf-export .schedule-spi-row #spi-trend-svg { height: 130px !important; }
+  body.pdf-export .schedule-pie-svg { height: 122px !important; }
+  body.pdf-export .schedule-gantt-shell { padding: 10px 14px 12px !important; }
+  body.pdf-export .gantt-header,
+  body.pdf-export .gantt-row { grid-template-columns: 220px 120px 1fr !important; }
+  body.pdf-export .gantt-header-label,
+  body.pdf-export .gantt-month-cell { padding: 7px 0 !important; font-size: 9.5px !important; }
+  body.pdf-export .gantt-row { min-height: 42px !important; }
+  body.pdf-export .gantt-row-label { padding: 0 16px !important; }
+  body.pdf-export .gantt-progress-cell { padding: 0 12px !important; gap: 4px !important; }
+  body.pdf-export .gantt-progress-value { font-size: 10px !important; }
+  body.pdf-export .gantt-progress-track { height: 6px !important; }
+  body.pdf-export .gantt-bar-real { height: 11px !important; }
 }
 .print-header {
   display: none;
@@ -134,8 +279,26 @@ body {
 .tab-btn.active .tab-num { background: var(--blue); }
 
 /* ─── PAGES ─── */
-.page { display: none; flex: 1; overflow-y: auto; padding: 24px 28px 32px; }
+.page { display: none; flex: 1; overflow: hidden; padding: 14px 20px 18px; }
 .page.active { display: block; }
+.overview-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  align-items: start;
+}
+.overview-charts-row {
+  display: grid;
+  grid-template-columns: .95fr 1.35fr 1.05fr 1.05fr;
+  gap: 10px;
+  align-items: stretch;
+  width: 100%;
+}
+.overview-main {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
 
 /* ─── KPI CARDS ─── */
 .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 20px; }
@@ -155,13 +318,70 @@ body {
   height: 3px;
   background: var(--accent, var(--blue));
 }
-.kpi-label { font-size: 11px; font-weight: 600; color: var(--ink-400); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+.kpi-label { font-size: 11px; font-weight: 800; color: #000; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
 .kpi-value { font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1; margin-bottom: 6px; }
 .kpi-sub { font-size: 11.5px; color: var(--ink-600); display: flex; align-items: center; gap: 5px; }
 .kpi-delta { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
 .kpi-delta.pos { background: var(--green-l); color: var(--green); }
 .kpi-delta.neg { background: var(--red-l); color: var(--red); }
 .kpi-delta.neu { background: var(--amber-l); color: var(--amber); }
+.fin-ref-card {
+  min-height: 82px;
+  padding: 10px 12px;
+}
+.fin-ref-card::before {
+  top: 0;
+  left: 0;
+  right: auto;
+  width: 3px;
+  height: 100%;
+  background: #1f5aa8;
+}
+.fin-ref-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #000;
+  text-transform: uppercase;
+  letter-spacing: .18em;
+  margin-bottom: 9px;
+}
+.fin-ref-main {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.fin-ref-value {
+  font-size: 17px;
+  font-weight: 800;
+  color: #00142f;
+  line-height: 1;
+}
+.fin-ref-suffix {
+  font-size: 7px;
+  color: #315f95;
+  font-weight: 500;
+}
+.fin-ref-sub {
+  font-size: 10px;
+  font-weight: 800;
+  color: #00142f;
+  margin-bottom: 10px;
+}
+.fin-ref-sub small {
+  font-size: 9px;
+  font-weight: 600;
+  color: #111827;
+}
+.fin-ref-badge {
+  display: inline-block;
+  font-size: 7px;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #b8f7dc;
+  color: #064e3b;
+}
 
 /* ─── SECTION HEADER ─── */
 .section-hd {
@@ -190,37 +410,39 @@ body {
 .proj-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: 10px;
+  table-layout: fixed;
 }
 .proj-table thead th {
   background: var(--ink-100);
-  font-size: 10.5px;
+  font-size: 8.8px;
   font-weight: 700;
   color: var(--ink-400);
   text-transform: uppercase;
-  letter-spacing: .06em;
-  padding: 10px 14px;
+  letter-spacing: .04em;
+  padding: 7px 8px;
   text-align: left;
   border-bottom: 1px solid var(--border);
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.15;
 }
-.proj-table thead th:first-child { padding-left: 18px; }
+.proj-table thead th:first-child { padding-left: 10px; }
 .proj-table tbody tr { border-bottom: 1px solid #f1f5f9; transition: background .12s; }
 .proj-table tbody tr:hover { background: #f8fafc; }
 .proj-table tbody tr:last-child { border-bottom: none; }
-.proj-table tbody td { padding: 11px 14px; vertical-align: middle; }
-.proj-table tbody td:first-child { padding-left: 18px; }
+.proj-table tbody td { padding: 10px 9px; vertical-align: middle; overflow: visible; text-overflow: clip; line-height: 1.24; overflow-wrap: anywhere; }
+.proj-table tbody td:first-child { padding-left: 10px; }
 
 .proj-id { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-400); }
-.proj-name { font-weight: 600; color: var(--ink); }
+.proj-name { font-size: 9.8px; font-weight: 600; color: var(--ink); line-height: 1.18; }
 .proj-area { font-size: 11px; color: var(--ink-400); margin-top: 1px; }
 
 /* health dot */
 .health-dot {
-  width: 10px; height: 10px;
+  width: 7px; height: 7px;
   border-radius: 50%;
   display: inline-block;
-  margin-right: 6px;
+  margin-right: 4px;
 }
 
 /* mini progress bar */
@@ -228,8 +450,13 @@ body {
 .mini-bar-fill { height: 100%; border-radius: 10px; }
 
 /* budget cell */
-.budget-cell { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; }
+.budget-cell { font-size: 9.5px; font-weight: 600; color: var(--ink); }
 .eac-over { color: var(--red); }
+
+#page-0 .proj-table { font-size: 10.6px; }
+#page-0 .proj-table thead th { font-size: 9.2px; padding: 9px 9px; }
+#page-0 .proj-table tbody td { padding: 11px 9px; line-height: 1.24; }
+#page-0 .proj-name { font-size: 10.4px; }
 .eac-under { color: var(--green); }
 .eac-ok { color: var(--ink-600); }
 
@@ -242,9 +469,13 @@ body {
 
 /* freq chip */
 .freq-chip {
-  font-size: 10.5px; color: var(--ink-600);
-  background: var(--ink-100); padding: 2px 8px; border-radius: 6px;
+  font-size: 8.5px; color: var(--ink-600);
+  background: var(--ink-100); padding: 1px 6px; border-radius: 5px;
   font-weight: 500;
+  display: inline-flex;
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.12;
 }
 
 /* ─── GANTT (PAGE 2) ─── */
@@ -258,7 +489,7 @@ body {
 }
 .gantt-header {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 220px 120px 1fr;
   border-bottom: 1px solid var(--border);
   background: var(--ink-100);
 }
@@ -267,6 +498,7 @@ body {
   font-size: 10.5px; font-weight: 700; color: var(--ink-400);
   text-transform: uppercase; letter-spacing: .06em;
   border-right: 1px solid var(--border);
+  text-align: center;
 }
 .gantt-months {
   display: grid;
@@ -281,38 +513,80 @@ body {
 }
 .gantt-row {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 220px 120px 1fr;
   border-bottom: 1px solid #f1f5f9;
-  min-height: 44px;
+  min-height: 56px;
   transition: background .12s;
 }
 .gantt-row:hover { background: #fafbfc; }
 .gantt-row:last-child { border-bottom: none; }
 .gantt-row-label {
   padding: 0 16px;
-  display: flex; flex-direction: column; justify-content: center;
+  display: flex; flex-direction: column; justify-content: center; align-items:flex-start; text-align:left;
   border-right: 1px solid var(--border);
   gap: 2px;
 }
 .gantt-row-name { font-size: 12px; font-weight: 600; color: var(--ink); }
-.gantt-row-resp { font-size: 10.5px; color: var(--ink-400); }
+.gantt-row-resp { display:none; }
+.gantt-progress-cell {
+  padding: 0 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-right: 1px solid var(--border);
+  gap: 4px;
+}
+.gantt-progress-value {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1;
+}
+.gantt-progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: #dbeafe;
+  overflow: hidden;
+}
+.gantt-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--green);
+}
+.schedule-layout { display:flex; flex-direction:column; gap:12px; }
+.schedule-spi-row { display:grid; grid-template-columns:1.25fr 1fr; gap:12px; }
+.schedule-health-row { display:grid; grid-template-columns:1fr 1fr 1.25fr; gap:12px; align-items:stretch; }
+.schedule-health-row > .chart-card,
+.schedule-health-row > #cron-kpis { height:100%; }
+.schedule-health-row > #cron-kpis > .kpi-card { height:100%; }
+.schedule-health-row .sv-card::before { display:none; }
+.schedule-gantt-shell { padding:14px 16px 16px; }
+.schedule-gantt-shell { flex:1; min-height:0; }
+.schedule-spi-row .chart-card,
+.schedule-health-row .chart-card { padding:10px 16px; }
+.schedule-spi-row #spi-svg,
+.schedule-spi-row #spi-trend-svg { display:block; width:100%; height:160px; }
+.schedule-pie-svg { display:block; width:100%; height:165px; }
+.schedule-gantt-shell .section-hd { margin-bottom:10px; }
+.sv-card { min-height: 108px; }
+.sv-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:8px; }
+.sv-avg { font-size:22px; font-weight:800; color:var(--red); line-height:1; }
+.sv-row { display:grid; grid-template-columns: 1fr 52px; gap:8px; align-items:center; margin-top:5px; }
+.sv-name { font-size:9px; font-weight:700; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sv-track { height:6px; background:#fee2e2; border-radius:999px; overflow:hidden; margin-top:2px; }
+.sv-fill { height:100%; background:var(--red); border-radius:999px; }
+.sv-days { font-size:9px; font-weight:800; color:var(--red); text-align:right; }
 .gantt-row-chart {
   position: relative;
-  padding: 8px 0;
+  padding: 14px 0;
   display: flex; align-items: center;
-}
-.gantt-bar-bg {
-  position: absolute;
-  height: 14px;
-  border-radius: 4px;
-  top: 50%; transform: translateY(-50%);
 }
 .gantt-bar-real {
   position: absolute;
   height: 14px;
-  border-radius: 4px 0 0 4px;
+  border-radius: 4px;
   top: 50%; transform: translateY(-50%);
-  opacity: .9;
+  opacity: .95;
 }
 .gantt-milestone {
   position: absolute;
@@ -325,9 +599,9 @@ body {
 .gantt-today-line {
   position: absolute;
   top: 0; bottom: 0;
-  width: 1.5px;
-  background: var(--red);
-  opacity: .7;
+  width: 0;
+  border-left: 1.5px dashed #111827;
+  opacity: .85;
 }
 .gantt-today-label {
   position: absolute;
@@ -340,8 +614,29 @@ body {
 }
 
 /* ─── FINANCE PAGE ─── */
-.fin-top { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
-.fin-charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.fin-top { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+.fin-top { margin-bottom: 10px; }
+.finance-t-grid {
+  display:grid;
+  grid-template-columns: 1.25fr 1fr;
+  grid-template-areas:
+    "left right"
+    "bottom bottom";
+  gap:12px;
+  align-items:stretch;
+}
+.finance-zone-left { grid-area:left; display:flex; flex-direction:column; gap:12px; min-width:0; }
+.finance-zone-right { grid-area:right; display:flex; flex-direction:column; gap:12px; min-width:0; }
+.finance-zone-left .fin-top { margin-bottom:0; }
+.finance-zone-bottom { grid-area:bottom; }
+.finance-main-card { flex: 1 1 auto; padding:14px 18px; display:flex; flex-direction:column; min-height:0; }
+.finance-main-card #scurve-svg { display:block; width:100%; flex:1 1 auto; height:362px; min-height:0; }
+.finance-project-card { flex: 0 0 auto; padding:14px 18px !important; }
+.finance-project-card #dev-bars { display:flex; flex-direction:column; gap:5px; }
+.finance-cpi-row { display:grid; grid-template-columns:1.25fr 1fr; gap:12px; margin-top:0; }
+.finance-cpi-row .chart-card { padding:10px 16px; }
+.finance-cpi-row #cpi-svg,
+.finance-cpi-row #cpi-trend-svg { display:block; width:100%; height:160px; }
 .chart-card {
   background: var(--card-bg);
   border-radius: var(--radius);
@@ -350,8 +645,165 @@ body {
   padding: 20px;
 }
 .chart-card-hd { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
-.chart-card-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+.chart-card-title { font-size: 11px; font-weight: 800; color: #000; text-transform: uppercase; letter-spacing: .06em; line-height: 1.15; }
 .chart-card-sub { font-size: 11px; color: var(--ink-400); }
+.overview-pie-card {
+  width: auto;
+  max-width: 100%;
+  margin-bottom: 0;
+  padding: 12px 14px;
+  min-height: 178px;
+}
+.overview-chart-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  align-items: stretch;
+  min-height: 150px;
+}
+.pie-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
+  flex: 1;
+}
+.mini-card {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+}
+.mini-card-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.05;
+  margin-bottom: 6px;
+}
+.mini-card-sub {
+  font-size: 11px;
+  color: var(--ink-400);
+}
+.kpi-large{position:relative;padding-top:18px;padding-bottom:38px}
+.kpi-large .mini-card-value{font-size:34px}
+.kpi-badge{
+  position:absolute;left:20px;bottom:18px;display:inline-block;
+  font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;
+  background:#eef2f7;color:#64748b;white-space:nowrap;
+}
+.portfolio-budget-overview{
+  min-height:178px;
+  padding:12px 16px 10px;
+  gap:4px;
+  justify-content:flex-start;
+  overflow:hidden;
+}
+.portfolio-budget-overview .mini-card-value{
+  font-size:28px;
+  margin:2px auto 0;
+  background:#f8e7a1;
+  border:1px solid #efd77a;
+  border-radius:10px;
+  padding:7px 12px;
+  width:82%;
+  text-align:center;
+  color:#6f4e00;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);
+}
+.portfolio-budget-overview .kpi-badge{left:18px;bottom:10px}
+.budget-breakdown{
+  position:relative;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-top:0;
+  padding-top:30px;
+}
+.budget-flow-svg{
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:38px;
+  pointer-events:none;
+}
+.budget-split{
+  border-radius:8px;
+  padding:6px 7px;
+  color:#fff;
+  width:fit-content;
+  max-width:92%;
+  text-align:left;
+  margin:0 auto;
+}
+.budget-split-label{
+  font-size:6px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  opacity:.85;
+  line-height:1;
+}
+.budget-split-value{
+  margin-top:5px;
+  font-size:11px;
+  font-weight:800;
+  line-height:1;
+  white-space:nowrap;
+}
+.budget-split-pct{
+  position:relative;
+  margin-top:16px;
+  font-size:10px;
+  font-weight:900;
+  text-align:center;
+  line-height:1;
+}
+.budget-split-pct::before{
+  content:'';
+  position:absolute;
+  left:50%;
+  top:-13px;
+  width:2px;
+  height:10px;
+  transform:translateX(-50%);
+  background:currentColor;
+  border-radius:2px;
+}
+.budget-topdown .sv-head{margin-bottom:10px}
+.budget-topdown{min-height:178px;padding:12px 18px 10px;overflow:hidden}
+.budget-topdown .sv-head{margin-bottom:6px}
+.budget-topdown .sv-row{grid-template-columns:minmax(0,1fr) 76px;gap:10px;margin-top:4px}
+.budget-topdown .sv-name{
+  white-space:normal;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  line-height:1.05;
+  font-size:8px;
+}
+.rag-head{
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;
+}
+.rag-global{
+  display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;
+}
+.rag-global i{width:10px;height:10px;border-radius:50%}
+.rag{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+}
+.rag-cell{
+  border:1px solid var(--border);border-radius:8px;padding:12px 10px;min-height:76px;
+  display:flex;flex-direction:column;justify-content:space-between;
+}
+.rag-cell.active.g{background:#d1fae5;border-color:#86efac}
+.rag-cell.active.a{background:#fef3c7;border-color:#fcd34d}
+.rag-cell.active.r{background:#fee2e2;border-color:#fca5a5}
+.rag-cell:not(.active){background:#f8fafc;color:var(--ink-400)}
+.rag-cell .rag-label{
+  font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+}
+.rag-cell .rag-note{font-size:11px;font-weight:600}
 
 .legend-row { display: flex; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; }
 .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ink-600); }
@@ -361,9 +813,102 @@ body {
 /* desvio bars */
 .dev-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .dev-row-name { font-size: 11.5px; color: var(--ink); font-weight: 500; width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
-.dev-bar-track { flex: 1; height: 8px; background: var(--ink-200); border-radius: 4px; overflow: hidden; }
+.dev-bar-track { flex: 1; height: 8px; background: var(--ink-200); border-radius: 4px; overflow: hidden; position: relative; }
 .dev-bar-fill { height: 100%; border-radius: 4px; }
 .dev-pct { font-size: 11px; font-family: 'DM Mono', monospace; font-weight: 600; width: 52px; text-align: right; flex-shrink: 0; }
+.accum-chart {
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 8px;
+  min-height: 190px;
+}
+.accum-y-axis {
+  position: relative;
+  height: 150px;
+  align-self: end;
+}
+.accum-y-label {
+  position: absolute;
+  right: 0;
+  transform: translateY(50%);
+  font-size: 8px;
+  color: var(--ink-400);
+  font-family: 'DM Mono', monospace;
+}
+.accum-plot {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
+  gap: 8px;
+  align-items: end;
+  min-height: 175px;
+}
+.accum-grid-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid #e8edf4;
+  pointer-events: none;
+}
+.accum-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.accum-bars {
+  position: relative;
+  width: 34px;
+  height: 130px;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+}
+.accum-plan {
+  position: absolute;
+  bottom: 0;
+  width: 30px;
+  border: 1.5px dashed #2563eb;
+  background: rgba(191, 219, 254, .35);
+  border-radius: 5px 5px 0 0;
+}
+.accum-real {
+  position: absolute;
+  bottom: 0;
+  width: 18px;
+  background: var(--green);
+  border-radius: 4px 4px 0 0;
+}
+.accum-pct {
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 800;
+}
+.accum-name {
+  width: 100%;
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.area-tradeoff { display:flex; flex-direction:column; gap:10px; }
+.area-row { display:grid; grid-template-columns: 88px 1fr 70px; gap:10px; align-items:center; }
+.area-name { font-size:10px; font-weight:800; color:#000; text-transform:uppercase; font-family:'DM Mono', monospace; }
+.area-track { position:relative; height:20px; border-radius:999px; overflow:hidden; display:flex; background:transparent; }
+.area-fill { height:100%; display:flex; align-items:center; justify-content:center; font-size:8.5px; font-weight:800; font-family:'DM Sans', sans-serif; color:#fff; white-space:nowrap; }
+.area-balance { height:100%; display:flex; align-items:center; justify-content:center; font-size:8.5px; font-weight:800; font-family:'DM Sans', sans-serif; white-space:nowrap; }
+.area-budget { font-size:10px; font-weight:800; font-family:'DM Mono', monospace; text-align:right; color:var(--ink); }
+.area-callout { position:absolute; top:50%; transform:translateY(-50%); font-size:8.5px; font-weight:800; font-family:'DM Sans', sans-serif; white-space:nowrap; }
+.area-callout::before { content:''; position:absolute; top:50%; width:18px; border-top:1.5px solid currentColor; }
+.area-callout.left::before { right:-22px; }
+.area-callout.right::before { left:-22px; }
+.tradeoff-pies { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.tradeoff-pie-svg { width:100%; height:150px; overflow:visible; }
 
 /* summary boxes */
 .summary-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
@@ -462,6 +1007,79 @@ body {
 }
 .btn-pdf:hover { background: var(--blue-d); }
 .btn-pdf svg { flex-shrink: 0; }
+.upload-input { display: none; }
+.upload-status {
+  font-size: 11px;
+  color: rgba(255,255,255,.65);
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.upload-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 25, 45, .85);
+  backdrop-filter: blur(6px);
+}
+.upload-card {
+  width: min(420px, calc(100vw - 48px));
+  background: #fff;
+  border-radius: 16px;
+  padding: 38px 44px 44px;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0,0,0,.30);
+}
+.upload-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 22px;
+  border-radius: 12px;
+  background: #1f5aa8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+.upload-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+.upload-copy {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #607089;
+  margin: 0 auto 28px;
+  max-width: 320px;
+}
+.upload-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: #1f5aa8;
+  color: #fff;
+  padding: 10px 24px;
+  min-height: 34px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+.upload-primary:hover { background: #174782; }
+.upload-modal-status {
+  min-height: 18px;
+  margin-top: 16px;
+  font-size: 12px;
+  color: #607089;
+}
 .btn-icon {
   width: 30px; height: 30px;
   border-radius: 6px;
@@ -476,10 +1094,10 @@ body {
 
 .exec-strip-meta {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   padding: 0 24px;
   height: 38px;
-  gap: 0;
+  gap: 18px;
 }
 .meta-field {
   display: flex;
@@ -504,7 +1122,39 @@ body {
   color: rgba(255,255,255,.85);
   white-space: nowrap;
 }
+.meta-select {
+  height: 24px;
+  min-width: 88px;
+  border-radius: 5px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.88);
+  font: inherit;
+  padding: 0 8px;
+  outline: none;
+}
+.filter-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  height:24px;padding:0 10px;border-radius:6px;border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.08);color:rgba(255,255,255,.9);cursor:pointer;
+  font:inherit;font-size:11px;font-weight:600;
+}
+.filter-btn:hover{background:rgba(255,255,255,.14)}
 .meta-spacer { flex: 1; }
+.inline-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+.tabs-bar.inline-tabs {
+  background: transparent;
+  padding: 0;
+  margin-left: auto;
+}
+.inline-tabs .tab-btn {
+  height: 38px;
+  padding: 0 18px;
+}
 .meta-month-badge {
   display: flex;
   align-items: center;
@@ -563,11 +1213,31 @@ body {
 </head>
 <body>
 
+<div id="upload-overlay" class="upload-overlay no-print">
+  <div class="upload-card">
+    <div class="upload-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <path d="M14 2v6h6"/>
+        <path d="M12 12v6"/>
+        <path d="m9 15 3-3 3 3"/>
+      </svg>
+    </div>
+    <div class="upload-title">Carregar Planilha</div>
+    <div class="upload-copy">
+      Selecione o arquivo <strong>.xlsx</strong> do portf&oacute;lio para popular o dashboard.
+      Os dados s&atilde;o processados localmente, nenhum arquivo &eacute; enviado.
+    </div>
+    <button class="upload-primary" type="button" onclick="document.getElementById('file-upload').click()">Selecionar arquivo</button>
+    <div id="upload-modal-status" class="upload-modal-status"></div>
+  </div>
+</div>
+
 <!-- PRINT HEADER (hidden, shown only on print) -->
 <div id="print-header" class="print-header" style="display:none;">
   <div style="display:flex;align-items:center;justify-content:space-between;">
     <div>
-      <h1>Dashboard de Portfolio — PMO</h1>
+      <h1>Relatório Executivo de Portfólio</h1>
       <p id="print-page-label">Visão Geral — Portfolio · Página 1 de 3</p>
     </div>
     <div style="text-align:right;">
@@ -583,10 +1253,18 @@ body {
   <div class="exec-strip-top">
     <div class="exec-badge">▶ Portfolio Report</div>
     <div class="exec-title-block">
-      <div class="exec-title">Dashboard de Portfolio — PMO</div>
-      <div class="exec-subtitle">Portfólio Gestão de Projetos 2025 &nbsp;·&nbsp; Monitoramento Executivo</div>
+      <div class="exec-title">Relatório Executivo de Portfólio</div>
+      <div class="exec-subtitle">Portfólio Prevenção de Danos Cadastro e PPD</div>
     </div>
     <div class="exec-actions">
+      <input id="file-upload" class="upload-input" type="file" accept=".xlsx,.xls" />
+      <button class="btn-pdf" type="button" onclick="document.getElementById('file-upload').click()">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 11V1"/><path d="M4.5 4.5L8 1l3.5 3.5"/><path d="M2 10v3a1 1 0 001 1h10a1 1 0 001-1v-3"/>
+        </svg>
+        Upload XLSX
+      </button>
+      <div id="upload-status" class="upload-status">Aguardando planilha</div>
       <button class="btn-pdf" onclick="exportPDF()">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 12H2a1 1 0 01-1-1V3a1 1 0 011-1h12a1 1 0 011 1v8a1 1 0 01-1 1h-2"/><path d="M8 8v7M5 12l3 3 3-3"/>
@@ -608,176 +1286,249 @@ body {
   <!-- Row 2: Meta fields -->
   <div class="exec-strip-meta">
     <div class="meta-field">
-      <div class="meta-label">Portfólio</div>
-      <div class="meta-value">Gestão de Projetos 2025</div>
-    </div>
-    <div class="meta-field">
-      <div class="meta-label">Gestor PMO</div>
-      <div class="meta-value" id="meta-gestor">—</div>
-    </div>
-    <div class="meta-field">
-      <div class="meta-label">Total de Projetos</div>
-      <div class="meta-value">12 projetos ativos</div>
-    </div>
-    <div class="meta-field">
       <div class="meta-label">Data de Corte</div>
       <div class="meta-value" id="meta-corte">—</div>
     </div>
     <div class="meta-field">
+      <div class="meta-label">Mês/Ano</div>
+      <button class="filter-btn" id="filter-btn" type="button" onclick="openFilter()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.5 10 19 14 21 14 12.5 22 3"></polygon></svg>
+        <span id="filter-label">Todos os meses</span>
+      </button>
+    </div>
+    <div class="meta-field">
       <div class="meta-label">Período</div>
-      <div class="meta-value">Janeiro 2025 – Dezembro 2025</div>
+      <div class="meta-value" id="meta-period">Janeiro 2025 – Dezembro 2025</div>
     </div>
-    <div class="meta-field">
-      <div class="meta-label">Budget Total</div>
-      <div class="meta-value" id="meta-budget">—</div>
+    <div class="tabs-bar no-print inline-tabs">
+      <button class="tab-btn active" onclick="goTab(0)">
+        <span>Visão Geral</span><span class="tab-num">P1</span>
+      </button>
+      <button class="tab-btn" onclick="goTab(1)">
+        <span>Cronograma</span><span class="tab-num">P2</span>
+      </button>
+      <button class="tab-btn" onclick="goTab(2)">
+        <span>Financeiro</span><span class="tab-num">P3</span>
+      </button>
     </div>
-    <div class="meta-field">
-      <div class="meta-label">EAC</div>
-      <div class="meta-value" id="meta-eac">—</div>
-    </div>
-    <div class="meta-field">
-      <div class="meta-label">Tipo</div>
-      <div class="meta-value">CAPEX + OPEX</div>
-    </div>
-    <div class="meta-spacer"></div>
-    <div class="meta-month-badge" id="meta-month">— 2025</div>
   </div>
 </div>
 
-<!-- TABS -->
-<div class="tabs-bar no-print">
-  <button class="tab-btn active" onclick="goTab(0)">
-    <span>Visão Geral</span><span class="tab-num">P1</span>
-  </button>
-  <button class="tab-btn" onclick="goTab(1)">
-    <span>Cronograma</span><span class="tab-num">P2</span>
-  </button>
-  <button class="tab-btn" onclick="goTab(2)">
-    <span>Financeiro</span><span class="tab-num">P3</span>
-  </button>
+<div id="filter-modal" style="display:none;position:fixed;inset:0;background:rgba(15,25,45,0.5);backdrop-filter:blur(4px);z-index:8000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:28px 32px;min-width:280px;box-shadow:0 16px 48px rgba(0,0,0,0.2);">
+    <div style="font-size:15px;font-weight:700;color:#1a2740;margin-bottom:20px;">Filtrar por Mês/Ano</div>
+    <div id="filter-options" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto;"></div>
+    <div style="display:flex;gap:8px;margin-top:20px;">
+      <button onclick="applyFilter()" style="flex:1;background:#1f5aa8;color:#fff;border:none;border-radius:6px;padding:9px;font-size:13px;font-weight:600;cursor:pointer;">Aplicar</button>
+      <button onclick="closeFilter()" style="flex:1;background:#f4f6f9;color:#29384d;border:none;border-radius:6px;padding:9px;font-size:13px;cursor:pointer;">Cancelar</button>
+    </div>
+  </div>
 </div>
 
-<!-- ══════════════════════════════════════════
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      PAGE 1 — VISÃO GERAL
-══════════════════════════════════════════ -->
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <div class="page active" id="page-0">
+  <div class="overview-layout">
+    <div class="overview-charts-row">
+      <div class="chart-card mini-card kpi-large portfolio-budget-overview">
+        <div class="chart-card-title">Budget do Portfólio</div>
+        <div class="mini-card-value" id="portfolio-budget-card">—</div>
+        <div class="budget-breakdown" id="portfolio-budget-breakdown"></div>
+      </div>
 
-  <!-- KPIs -->
-  <div class="kpi-row" id="kpi-row"></div>
+      <div class="chart-card sv-card budget-topdown" style="--accent:var(--blue);">
+        <div class="sv-head">
+          <div>
+            <div class="chart-card-title">Maiores Budgets</div>
+            <div class="kpi-sub">Top projetos por orçamento</div>
+          </div>
+        </div>
+        <div id="budget-topdown"></div>
+      </div>
 
-  <!-- Health summary -->
-  <div class="section-hd">
-    <h2>Saúde do Portfolio</h2>
-    <div class="section-line"></div>
-  </div>
-  <div class="summary-box" id="health-summary"></div>
+      <div class="chart-card overview-pie-card">
+        <div class="chart-card-hd">
+          <div class="chart-card-title">Projetos por Área Estratégica</div>
+        </div>
+        <div class="overview-chart-grid">
+          <div class="pie-wrap">
+            <svg id="strategic-pie-svg" width="100%" viewBox="0 0 420 190" style="width:100%;height:150px;overflow:visible;"></svg>
+          </div>
+        </div>
+      </div>
 
-  <!-- Project table -->
-  <div class="section-hd">
-    <h2>Projetos</h2>
-    <div class="section-line"></div>
-  </div>
-  <div class="proj-table-wrap">
-    <table class="proj-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Projeto</th>
-          <th>Responsável</th>
-          <th>Orçamento (R$)</th>
-          <th>EAC (R$)</th>
-          <th>Desvio</th>
-          <th>% Planejado</th>
-          <th>% Realizado</th>
-          <th>Saúde</th>
-          <th>Frequência</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody id="proj-tbody"></tbody>
-    </table>
+      <div class="chart-card overview-pie-card">
+        <div class="chart-card-hd">
+          <div class="chart-card-title">RAG por Mês/Ano</div>
+        </div>
+        <div class="overview-chart-grid">
+          <div class="pie-wrap">
+            <svg id="rag-pie-svg" width="100%" viewBox="0 0 420 190" style="width:100%;height:150px;overflow:visible;"></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="overview-main">
+      <div class="proj-table-wrap">
+        <table class="proj-table">
+          <colgroup>
+            <col style="width:14%;">
+            <col style="width:7%;">
+            <col style="width:9%;">
+            <col style="width:6%;">
+            <col style="width:8%;">
+            <col style="width:11%;">
+            <col style="width:10%;">
+            <col style="width:12%;">
+            <col style="width:7%;">
+            <col style="width:8%;">
+            <col style="width:8%;">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Projeto</th>
+              <th>Área Estratégica</th>
+              <th>Status no Portfólio</th>
+              <th>RAG</th>
+              <th>Área Responsável</th>
+              <th>Sponsor</th>
+              <th>Responsável Negócio</th>
+              <th>Responsável Execução</th>
+              <th>Business Plan</th>
+              <th>Budget Projeto</th>
+              <th>Report Diretoria</th>
+            </tr>
+          </thead>
+          <tbody id="proj-tbody"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
 </div>
 
-<!-- ══════════════════════════════════════════
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      PAGE 2 — CRONOGRAMA
-══════════════════════════════════════════ -->
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <div class="page" id="page-1">
 
-  <div class="kpi-row" style="grid-template-columns: repeat(4,1fr); margin-bottom:20px;" id="cron-kpis"></div>
+  <div class="schedule-layout">
+    <div class="schedule-spi-row">
+      <div class="chart-card">
+        <div class="chart-card-hd">
+          <div class="chart-card-title">SPI por Projeto</div>
+          <div class="chart-card-sub">Mês filtrado — linha média do portfólio</div>
+        </div>
+        <svg id="spi-svg" width="100%" viewBox="0 0 680 160" style="overflow:visible;"></svg>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-hd">
+          <div class="chart-card-title">Evolução do SPI Médio</div>
+          <div class="chart-card-sub">Média mensal até o mês filtrado</div>
+        </div>
+        <svg id="spi-trend-svg" width="100%" viewBox="0 0 520 160" style="overflow:visible;"></svg>
+      </div>
+    </div>
 
-  <div class="section-hd">
-    <h2>Gantt Compilado — Portfolio 2025</h2>
-    <div class="section-line"></div>
-    <div style="font-size:11px;color:var(--ink-400);display:flex;align-items:center;gap:14px;flex-shrink:0;">
-      <span style="display:flex;align-items:center;gap:5px;"><span style="width:16px;height:6px;border-radius:3px;background:#2563eb;display:inline-block;"></span>Planejado</span>
-      <span style="display:flex;align-items:center;gap:5px;"><span style="width:16px;height:6px;border-radius:3px;background:#059669;display:inline-block;"></span>Realizado</span>
-      <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;transform:rotate(45deg);background:#f59e0b;display:inline-block;border-radius:2px;"></span>Marco</span>
-      <span style="display:flex;align-items:center;gap:5px;"><span style="width:2px;height:14px;background:var(--red);display:inline-block;"></span>Hoje</span>
+    <div class="schedule-health-row">
+      <div class="chart-card">
+        <div class="chart-card-title">Projetos no Prazo x Atrasados</div>
+        <svg id="schedule-status-pie" class="schedule-pie-svg" viewBox="0 0 320 170"></svg>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Projetos no Prazo x Atrasados por Área</div>
+        <svg id="schedule-area-pie" class="schedule-pie-svg" viewBox="0 0 320 170"></svg>
+      </div>
+      <div id="cron-kpis"></div>
+    </div>
+
+    <div class="chart-card schedule-gantt-shell">
+      <div class="section-hd">
+        <h2>Linha do tempo do Portfolio</h2>
+        <div class="section-line"></div>
+        <div style="font-size:11px;color:var(--ink-400);display:flex;align-items:center;gap:14px;flex-shrink:0;">
+          <span style="display:flex;align-items:center;gap:5px;"><span style="width:16px;height:6px;border-radius:3px;background:#2563eb;display:inline-block;"></span>Planejado</span>
+          <span style="display:flex;align-items:center;gap:5px;"><span style="width:16px;height:6px;border-radius:3px;background:#059669;display:inline-block;"></span>Realizado</span>
+          <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;transform:rotate(45deg);background:#fff;border:2px solid #111827;display:inline-block;border-radius:2px;"></span>Marco</span>
+          <span style="display:flex;align-items:center;gap:5px;"><span style="width:2px;height:14px;background:#111827;display:inline-block;"></span>Hoje</span>
+        </div>
+      </div>
+      <div class="gantt-card" id="gantt-card"></div>
     </div>
   </div>
-
-  <div class="gantt-card" id="gantt-card"></div>
 
 </div>
 
-<!-- ══════════════════════════════════════════
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      PAGE 3 — FINANCEIRO
-══════════════════════════════════════════ -->
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <div class="page" id="page-2">
 
-  <div class="fin-top" id="fin-kpis"></div>
-
-  <div class="fin-charts-row">
-    <!-- S-Curve -->
-    <div class="chart-card">
-      <div class="chart-card-hd">
-        <div class="chart-card-title">Curva S — Cumulativo do Portfolio</div>
-        <div class="chart-card-sub">Jan–Dez 2025</div>
+  <div class="finance-t-grid">
+    <div class="finance-zone-left">
+      <div class="fin-top" id="fin-kpis"></div>
+      <div class="chart-card finance-main-card">
+        <div class="chart-card-hd">
+          <div class="chart-card-title">Consumo Financeiro</div>
+          <div class="chart-card-sub" id="scurve-sub">Valores mensais em R$ MM</div>
+        </div>
+        <div class="legend-row">
+          <div class="legend-item"><div class="legend-line" style="background:#2563eb;"></div>BP</div>
+          <div class="legend-item"><div class="legend-line" style="background:#059669;"></div>Realizado</div>
+          <div class="legend-item"><div class="legend-line" style="background:#059669;border-top:2px dashed #059669;background:none;width:18px;height:0;"></div>Forecast</div>
+        </div>
+        <svg id="scurve-svg" width="100%" viewBox="0 0 680 362" style="overflow:visible;"></svg>
       </div>
-      <div class="legend-row">
-        <div class="legend-item"><div class="legend-line" style="background:#2563eb;"></div>BP Planejado</div>
-        <div class="legend-item"><div class="legend-line" style="background:#059669;"></div>Realizado</div>
-        <div class="legend-item"><div class="legend-line" style="background:#059669;border-top:2px dashed #059669;background:none;width:18px;height:0;"></div>Forecast</div>
-        <div class="legend-item"><div class="legend-line" style="background:#f59e0b;"></div>EAC</div>
-      </div>
-      <svg id="scurve-svg" width="100%" viewBox="0 0 680 280" style="overflow:visible;"></svg>
     </div>
 
-    <!-- Monthly bars -->
-    <div class="chart-card">
-      <div class="chart-card-hd">
-        <div class="chart-card-title">Mensal — Planejado vs Realizado</div>
-        <div class="chart-card-sub">Valores em R$ (milhões)</div>
+    <div class="finance-zone-right">
+      <div class="tradeoff-pies">
+        <div class="chart-card" style="padding:16px 18px;">
+          <div class="chart-card-title">Consumo do Budget - Cadastro</div>
+          <svg id="tradeoff-cadastro-pie" class="tradeoff-pie-svg" viewBox="0 0 260 170"></svg>
+        </div>
+        <div class="chart-card" style="padding:16px 18px;">
+          <div class="chart-card-title">Consumo do Budget - PPD</div>
+          <svg id="tradeoff-ppd-pie" class="tradeoff-pie-svg" viewBox="0 0 260 170"></svg>
+        </div>
       </div>
-      <div class="legend-row">
-        <div class="legend-item"><div class="legend-dot" style="background:#2563eb;border-radius:2px;width:12px;height:8px;"></div>Planejado</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#059669;border-radius:2px;width:12px;height:8px;"></div>Realizado</div>
-        <div class="legend-item"><div class="legend-line" style="background:#f59e0b;"></div>EAC/mês</div>
+      <div class="chart-card finance-project-card" style="padding:20px 24px;">
+        <div class="chart-card-hd">
+          <div class="chart-card-title">Consumo do Budget por Projeto (%)</div>
+        </div>
+        <div id="dev-bars"></div>
       </div>
-      <svg id="bar-svg" width="100%" viewBox="0 0 680 280" style="overflow:visible;"></svg>
     </div>
-  </div>
 
-  <!-- Budget deviation by project -->
-  <div class="section-hd">
-    <h2>Desvio de Orçamento por Projeto</h2>
-    <div class="section-line"></div>
-    <div style="font-size:11px;color:var(--ink-400);flex-shrink:0;">EAC vs Budget — % desvio</div>
-  </div>
-  <div class="chart-card" style="padding:20px 24px;">
-    <div id="dev-bars" style="display:flex;flex-direction:column;gap:6px;"></div>
+    <div class="finance-zone-bottom finance-cpi-row">
+      <div class="chart-card">
+        <div class="chart-card-hd">
+          <div class="chart-card-title">CPI por Projeto</div>
+          <div class="chart-card-sub">Mês filtrado — linha média do portfólio</div>
+        </div>
+        <svg id="cpi-svg" width="100%" viewBox="0 0 680 208" style="overflow:visible;"></svg>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-hd">
+          <div class="chart-card-title">Evolução do CPI Médio</div>
+          <div class="chart-card-sub">Média mensal até o mês filtrado</div>
+        </div>
+        <svg id="cpi-trend-svg" width="100%" viewBox="0 0 520 208" style="overflow:visible;"></svg>
+      </div>
+    </div>
   </div>
 
 </div>
 
 <script>
-// ════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // DATA
-// ════════════════════════════════════════════
-const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-const TODAY_MONTH = 3; // Abril (0-based) — mês de referência
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+const DEFAULT_MONTH_LABELS = ['jan/25','fev/25','mar/25','abr/25','mai/25','jun/25','jul/25','ago/25','set/25','out/25','nov/25','dez/25'];
+let MONTHS = [...DEFAULT_MONTH_LABELS];
+let TODAY_MONTH = 3;
 
 const PROJECTS = [
   { id:'PRJ-01', nome:'Sistema ERP', area:'TI',             resp:'Carlos Mendes',    budget:2800000, eac:3108000, planPct:48, realPct:38, start:0, end:11, risco:8,  freq:'Quinzenal',  status:'amarelo',
@@ -809,7 +1560,7 @@ const PROJECTS = [
 // Monthly planned spend per project (distribute budget across months)
 function genMonthlyPlan(p) {
   const dur = p.end - p.start + 1;
-  const months = new Array(12).fill(0);
+  const months = new Array(MONTHS.length).fill(0);
   // Bell-ish distribution
   for (let i = p.start; i <= p.end; i++) {
     const rel = (i - p.start) / Math.max(1, dur - 1);
@@ -821,9 +1572,9 @@ function genMonthlyPlan(p) {
 }
 
 function genMonthlyReal(plan, p) {
-  const real = new Array(12).fill(null);
+  const real = new Array(MONTHS.length).fill(null);
   const ratio = p.realPct / p.planPct;
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < MONTHS.length; i++) {
     if (i > TODAY_MONTH) break;
     if (i < p.start || i > p.end) continue;
     const noise = 0.88 + Math.random() * 0.28;
@@ -848,14 +1599,29 @@ let _seed = 42;
 Math.seededRand = () => { _seed = (_seed * 9301 + 49297) % 233280; return _seed / 233280; };
 Math.random = Math.seededRand; // deterministic
 
-const projData = PROJECTS.map(p => {
-  const plan = genMonthlyPlan(p);
-  const real = genMonthlyReal(plan, p);
-  const fc = genMonthlyForecast(plan, real, p);
-  return { ...p, monthPlan: plan, monthReal: real, monthFc: fc };
-});
+let projData = [];
+let totalBudget = 0;
+let totalEAC = 0;
+let totalReal = 0;
+let totalPlan = 0;
+let desvioOrc = 0;
+let avgSPI = 0;
+let avgRisco = 0;
+let cpi = 0;
+let verde = 0;
+let amarelo = 0;
+let vermelho = 0;
+let portMonthPlan = [];
+let portMonthReal = [];
+let portMonthFc = [];
+let cumPlan = [];
+let cumReal = [];
+let cumFc = [];
+let cumEAC = [];
+let portfolioBudget = 0;
+let evolutionRagMap = new Map();
+let consolidatedSeries = null;
 
-// Aggregate
 function sumArr(arr) { return arr.reduce((a, b) => (a || 0) + (b || 0), 0); }
 function sumArrNulls(arr) {
   let s = 0, hasVal = false;
@@ -863,38 +1629,6 @@ function sumArrNulls(arr) {
   return hasVal ? s : null;
 }
 
-const totalBudget = projData.reduce((s, p) => s + p.budget, 0);
-const totalEAC    = projData.reduce((s, p) => s + p.eac, 0);
-const totalReal   = projData.reduce((s, p) => {
-  const r = p.monthReal.filter(v => v !== null);
-  return s + r.reduce((a, b) => a + b, 0);
-}, 0);
-const totalPlan   = projData.reduce((s, p) => {
-  const pln = p.monthPlan.slice(0, TODAY_MONTH + 1);
-  return s + pln.reduce((a, b) => a + b, 0);
-}, 0);
-
-const desvioOrc = (totalEAC - totalBudget) / totalBudget * 100;
-const avgSPI    = projData.reduce((s, p) => s + (p.realPct / Math.max(1, p.planPct)), 0) / projData.length;
-const avgRisco  = projData.reduce((s, p) => s + p.risco, 0) / projData.length;
-const cpi       = totalReal / Math.max(1, totalPlan);
-
-const verde     = projData.filter(p => p.status === 'verde').length;
-const amarelo   = projData.filter(p => p.status === 'amarelo').length;
-const vermelho  = projData.filter(p => p.status === 'vermelho').length;
-
-// Monthly aggregates
-const portMonthPlan = MONTHS.map((_, i) => projData.reduce((s, p) => s + p.monthPlan[i], 0));
-const portMonthReal = MONTHS.map((_, i) => {
-  const vals = projData.map(p => p.monthReal[i]).filter(v => v !== null);
-  return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
-});
-const portMonthFc   = MONTHS.map((_, i) => {
-  const vals = projData.map(p => p.monthFc[i]).filter(v => v !== null);
-  return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
-});
-
-// Cumulative
 function cumArr(arr, useNull = false) {
   let sum = 0;
   return arr.map(v => {
@@ -903,26 +1637,451 @@ function cumArr(arr, useNull = false) {
     return sum;
   });
 }
-const cumPlan  = cumArr(portMonthPlan);
-const cumReal  = MONTHS.map((_, i) => {
-  if (portMonthReal[i] === null) return null;
-  return portMonthReal.slice(0, i + 1).filter(v => v !== null).reduce((a, b) => a + b, 0);
-});
-const cumFc    = MONTHS.map((_, i) => {
-  if (i <= TODAY_MONTH) return cumReal[TODAY_MONTH];
-  const prev = portMonthFc.slice(TODAY_MONTH + 1, i + 1).filter(v => v !== null).reduce((a, b) => a + b, 0);
-  return (cumReal[TODAY_MONTH] || 0) + prev;
-});
-const cumEAC = cumArr(MONTHS.map((_, i) => {
-  // EAC as budget * eac/budget ratio distributed
-  return projData.reduce((s, p) => s + Math.round(p.monthPlan[i] * (p.eac / p.budget)), 0);
-}));
 
-// ════════════════════════════════════════════
+function buildProjectDataset(projects) {
+  return projects.map(p => {
+    const plan = p.monthPlan || genMonthlyPlan(p);
+    const real = p.monthReal || genMonthlyReal(plan, p);
+    const fc = p.monthFc || genMonthlyForecast(plan, real, p);
+    return { ...p, monthPlan: plan, monthReal: real, monthRealSource: real.map(v => v === null ? 0 : v), monthFc: fc };
+  });
+}
+
+function syncProjectsToSelectedMonth() {
+  projData = projData.map((p) => {
+    const monthPlan = p.monthPlan || new Array(MONTHS.length).fill(0);
+    const rawReal = p.monthRealSource || p.monthReal || new Array(MONTHS.length).fill(0);
+    const monthReal = rawReal.map((value, index) => index <= TODAY_MONTH ? value : null);
+    const totalPlanned = Math.max(sumArr(monthPlan), p.budget || 0, 1);
+    const cumulativePlan = sumArr(monthPlan.slice(0, TODAY_MONTH + 1));
+    const cumulativeReal = sumArr(monthReal.filter(v => v !== null));
+    const planPct = Math.min(100, Math.round(safePct(cumulativePlan, totalPlanned)));
+    const realPct = Math.min(100, Math.round(safePct(cumulativeReal, totalPlanned)));
+    const eac = Math.max(p.budget || 0, cumulativeReal + sumArr(monthPlan.slice(TODAY_MONTH + 1)));
+    const monthFc = genMonthlyForecast(monthPlan, monthReal, { eac, budget: Math.max(1, p.budget || 0), end: p.end });
+    const evolution = getProjectEvolution(p.id);
+    return { ...p, monthRealSource: rawReal, monthReal, planPct, realPct, eac, monthFc, status: normalizeStatus(p.statusPortfolio, planPct, realPct), rag: evolution.rag || '-', completionPct: evolution.completionPct, sv: evolution.sv };
+  });
+}
+
+function recomputePortfolio() {
+  totalBudget = projData.reduce((s, p) => s + (p.budget || 0), 0);
+  totalEAC = projData.reduce((s, p) => s + (p.eac || 0), 0);
+  totalReal = projData.reduce((s, p) => s + sumArr(p.monthReal.filter(v => v !== null)), 0);
+  totalPlan = projData.reduce((s, p) => s + sumArr(p.monthPlan.slice(0, TODAY_MONTH + 1)), 0);
+  desvioOrc = totalBudget ? (totalEAC - totalBudget) / totalBudget * 100 : 0;
+  avgSPI = projData.length ? projData.reduce((s, p) => s + (p.realPct / Math.max(1, p.planPct)), 0) / projData.length : 0;
+  avgRisco = projData.length ? projData.reduce((s, p) => s + p.risco, 0) / projData.length : 0;
+  cpi = totalReal / Math.max(1, totalPlan);
+  verde = projData.filter(p => p.status === 'verde').length;
+  amarelo = projData.filter(p => p.status === 'amarelo').length;
+  vermelho = projData.filter(p => p.status === 'vermelho').length;
+  portMonthPlan = MONTHS.map((_, i) => projData.reduce((s, p) => s + (p.monthPlan[i] || 0), 0));
+  portMonthReal = MONTHS.map((_, i) => {
+    const vals = projData.map(p => p.monthReal[i]).filter(v => v !== null);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+  });
+  portMonthFc = MONTHS.map((_, i) => {
+    const vals = projData.map(p => p.monthFc[i]).filter(v => v !== null);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+  });
+  cumPlan = cumArr(portMonthPlan);
+  cumReal = MONTHS.map((_, i) => {
+    if (portMonthReal[i] === null) return null;
+    return portMonthReal.slice(0, i + 1).filter(v => v !== null).reduce((a, b) => a + b, 0);
+  });
+  cumFc = MONTHS.map((_, i) => {
+    if (i <= TODAY_MONTH) return cumReal[TODAY_MONTH] || cumReal[i] || 0;
+    const prev = portMonthFc.slice(TODAY_MONTH + 1, i + 1).filter(v => v !== null).reduce((a, b) => a + b, 0);
+    return (cumReal[TODAY_MONTH] || 0) + prev;
+  });
+  cumEAC = cumArr(MONTHS.map((_, i) =>
+    projData.reduce((s, p) => s + Math.round((p.monthPlan[i] || 0) * ((p.eac || 0) / Math.max(1, p.budget || 1))), 0)
+  ));
+}
+
+function normalizeText(value) {
+  return (value || '').toString().trim();
+}
+
+function normalizeCode(value) {
+  return normalizeText(value).toUpperCase().replace(/\s+/g, '');
+}
+
+function normalizeKey(value) {
+  return normalizeText(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function parseNumber(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (value === null || value === undefined || value === '') return 0;
+  const clean = String(value)
+    .replace(/[^\d,.-]/g, '')
+    .replace(/\.(?=\d{3}(?:\D|$))/g, '')
+    .replace(',', '.');
+  const parsed = Number(clean);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parsePercentValue(value) {
+  const n = parseNumber(value);
+  return Math.max(0, Math.min(100, n <= 1 ? n * 100 : n));
+}
+
+function safePct(numerator, denominator) {
+  const base = Math.abs(denominator || 0);
+  if (!base) return 0;
+  const value = numerator / base * 100;
+  return Number.isFinite(value) ? value : 0;
+}
+
+function normalizeStatus(value, planPct, realPct) {
+  const raw = normalizeText(value).toLowerCase();
+  if (raw.includes('susp')) return 'vermelho';
+  if (raw.includes('nao iniciado') || raw.includes('não iniciado') || raw.includes('parado')) return 'cinza';
+  if (raw.includes('ativo')) return 'verde';
+  if (realPct >= planPct * 0.95) return 'verde';
+  if (realPct >= planPct * 0.8) return 'amarelo';
+  return 'vermelho';
+}
+
+function getUploadStatus() {
+  return document.getElementById('upload-status');
+}
+
+function setUploadStatus(text, isError = false) {
+  const toolbarStatus = getUploadStatus();
+  const modalStatus = document.getElementById('upload-modal-status');
+  if (toolbarStatus) {
+    toolbarStatus.textContent = text;
+    toolbarStatus.style.color = isError ? '#fca5a5' : 'rgba(255,255,255,.65)';
+  }
+  if (modalStatus) {
+    modalStatus.textContent = text;
+    modalStatus.style.color = isError ? '#dc2626' : '#607089';
+  }
+}
+
+function hideUploadOverlay() {
+  const overlay = document.getElementById('upload-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function extractSheetMatrix(sheet) {
+  return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: true });
+}
+
+function extractMonthHeaders(matrix, startCol = 2) {
+  if (!matrix.length) return [...DEFAULT_MONTH_LABELS];
+  const headers = matrix[0].slice(startCol).map(normalizeText).filter(Boolean);
+  return headers.length ? headers : [...DEFAULT_MONTH_LABELS];
+}
+
+function extractMonthlyMap(matrix) {
+  const map = new Map();
+  matrix.slice(1).forEach(row => {
+    const code = normalizeCode(row[1]);
+    if (!code) return;
+    const months = MONTHS.map((_, i) => {
+      const value = row[i + 2];
+      return parseNumber(value);
+    });
+    map.set(code, months);
+  });
+  return map;
+}
+
+function extractConsolidatedSeries(matrix) {
+  if (!matrix.length) return null;
+  const headerMap = new Map((matrix[0] || []).map((h, i) => [normalizeKey(h), i]));
+  const getMonthValue = (row, month) => {
+    const col = headerMap.get(normalizeKey(month));
+    return col === undefined ? 0 : parseNumber(row[col]);
+  };
+  const rows = new Map();
+  matrix.slice(1).forEach(row => {
+    const item = normalizeKey(row[0]);
+    if (item) rows.set(item, row);
+  });
+  const series = {};
+  ['BP', 'Realizado', 'Forecast', 'PV', 'AC', 'EAC'].forEach(name => {
+    const row = rows.get(normalizeKey(name));
+    series[name.toLowerCase()] = row ? MONTHS.map(month => getMonthValue(row, month)) : new Array(MONTHS.length).fill(0);
+  });
+  return series;
+}
+
+function formatMilestoneValue(value) {
+  if (value === null || value === undefined || value === '') return '';
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const date = XLSX.SSF.parse_date_code(value);
+    if (date && date.y && date.m && date.d) {
+      return String(date.d).padStart(2, '0') + '/' + String(date.m).padStart(2, '0') + '/' + String(date.y).slice(-2);
+    }
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  }
+  return normalizeText(value);
+}
+
+function parseDateValue(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (parsed && parsed.y && parsed.m && parsed.d) return new Date(parsed.y, parsed.m - 1, parsed.d);
+  }
+  const text = normalizeText(value);
+  if (!text) return null;
+  const match = text.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+  if (!match) return null;
+  const year = Number(match[3].length === 2 ? '20' + match[3] : match[3]);
+  return new Date(year, Number(match[2]) - 1, Number(match[1]));
+}
+
+function monthIndexFromDate(date) {
+  if (!date) return null;
+  const yy = String(date.getFullYear()).slice(-2);
+  const mm = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][date.getMonth()];
+  const key = mm + '/' + yy;
+  const index = MONTHS.findIndex(label => normalizeKey(label) === key);
+  return index >= 0 ? index : null;
+}
+
+function getCutoffPositionPct(date, monthCount) {
+  const monthIndex = monthIndexFromDate(date);
+  if (!Number.isInteger(monthIndex)) return ((TODAY_MONTH + 0.5) / monthCount) * 100;
+  const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  const dayRatio = Math.max(0, Math.min(1, (date.getDate() - 1) / daysInMonth));
+  return ((monthIndex + dayRatio) / monthCount) * 100;
+}
+
+function getDatePositionPct(date, monthCount) {
+  const monthIndex = monthIndexFromDate(date);
+  if (!Number.isInteger(monthIndex)) return null;
+  const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  const dayRatio = Math.max(0, Math.min(1, (date.getDate() - 1) / daysInMonth));
+  return ((monthIndex + dayRatio) / monthCount) * 100;
+}
+
+function getDateEndPositionPct(date, monthCount) {
+  const monthIndex = monthIndexFromDate(date);
+  if (!Number.isInteger(monthIndex)) return null;
+  const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  const dayRatio = Math.max(0, Math.min(1, date.getDate() / daysInMonth));
+  return ((monthIndex + dayRatio) / monthCount) * 100;
+}
+
+function extractEvolutionRagMap(matrix) {
+  const map = new Map();
+  const headers = matrix[0] || [];
+  const dateCol = headers.findIndex(h => normalizeKey(h).includes('data') && normalizeKey(h).includes('referencia'));
+  const codeCol = headers.findIndex(h => normalizeKey(h).includes('codigo') && normalizeKey(h).includes('projeto'));
+  const ragCol = headers.findIndex(h => normalizeKey(h) === 'rag');
+  const completionCol = headers.findIndex(h => normalizeKey(h).includes('conclusao') && normalizeKey(h).includes('real'));
+  const svCol = headers.findIndex(h => normalizeKey(h).includes('desvio') && normalizeKey(h).includes('prazo'));
+  const spiCol = headers.findIndex(h => normalizeKey(h) === 'spi' || normalizeKey(h).includes('spi'));
+  const cpiCol = headers.findIndex(h => normalizeKey(h) === 'cpi' || normalizeKey(h).includes('cpi'));
+  if (dateCol < 0 || codeCol < 0) return map;
+  matrix.slice(1).forEach(row => {
+    const code = normalizeCode(row[codeCol]);
+    const monthIndex = monthIndexFromDate(parseDateValue(row[dateCol]));
+    if (!code || !Number.isInteger(monthIndex)) return;
+    if (!map.has(code)) map.set(code, new Map());
+    map.get(code).set(monthIndex, {
+      rag: ragCol >= 0 ? normalizeText(row[ragCol]) : '-',
+      completionPct: completionCol >= 0 ? parsePercentValue(row[completionCol]) : null,
+      sv: svCol >= 0 ? parseNumber(row[svCol]) : null,
+      spi: spiCol >= 0 ? parseNumber(row[spiCol]) : null,
+      cpi: cpiCol >= 0 ? parseNumber(row[cpiCol]) : null
+    });
+  });
+  return map;
+}
+
+function getProjectEvolution(code) {
+  const byMonth = evolutionRagMap.get(normalizeCode(code));
+  return byMonth ? byMonth.get(TODAY_MONTH) || {} : {};
+}
+
+function getProjectRag(code) {
+  return getProjectEvolution(code).rag || '-';
+}
+
+function getLatestRagMonth() {
+  let latest = null;
+  evolutionRagMap.forEach(byMonth => {
+    byMonth.forEach((_, monthIndex) => {
+      if (latest === null || monthIndex > latest) latest = monthIndex;
+    });
+  });
+  return latest;
+}
+
+function extractMilestoneMap(matrix) {
+  const map = new Map();
+  const headers = matrix[0] || [];
+  const startDateCol = headers.findIndex(h => {
+    const key = normalizeKey(h);
+    return key.includes('data') && key.includes('inicio');
+  });
+  const endDateCol = headers.findIndex(h => {
+    const key = normalizeKey(h);
+    return key.includes('data') && (key.includes('termino') || key.includes('fim'));
+  });
+  const monthCols = MONTHS.map(month =>
+    headers.findIndex(header => normalizeKey(header) === normalizeKey(month))
+  );
+  matrix.slice(1).forEach(row => {
+    const code = normalizeCode(row[1]);
+    if (!code) return;
+    const milestones = [];
+    MONTHS.forEach((_, i) => {
+      const colIndex = monthCols[i] >= 0 ? monthCols[i] : i + 2;
+      const rawValue = row[colIndex];
+      const value = formatMilestoneValue(rawValue);
+      if (value) milestones.push({ m: i, nome: value, date: parseDateValue(rawValue) });
+    });
+    const milestoneMonths = milestones.map(m => m.m);
+    const firstMilestone = milestoneMonths.length ? Math.min(...milestoneMonths) : null;
+    const lastMilestone = milestoneMonths.length ? Math.max(...milestoneMonths) : null;
+    const explicitStartDate = startDateCol >= 0 ? parseDateValue(row[startDateCol]) : null;
+    const explicitEndDate = endDateCol >= 0 ? parseDateValue(row[endDateCol]) : null;
+    const explicitStart = monthIndexFromDate(explicitStartDate);
+    const explicitEnd = monthIndexFromDate(explicitEndDate);
+    const start = Number.isInteger(explicitStart) ? explicitStart : firstMilestone;
+    const end = Number.isInteger(explicitEnd) ? explicitEnd : lastMilestone;
+    map.set(code, { milestones, start, end, startDate: explicitStartDate, endDate: explicitEndDate });
+  });
+  return map;
+}
+
+function computeTodayMonth(realMap) {
+  let lastMonth = 0;
+  realMap.forEach(months => {
+    months.forEach((value, index) => {
+      if (value > 0 && index > lastMonth) lastMonth = index;
+    });
+  });
+  return lastMonth;
+}
+
+function buildProjectsFromWorkbook(workbook) {
+  const pmoSheet = workbook.Sheets['PMO'];
+  if (!pmoSheet) throw new Error('Aba PMO nao encontrada.');
+  const pmoRows = extractSheetMatrix(pmoSheet);
+  const bpMatrix = workbook.Sheets['BP'] ? extractSheetMatrix(workbook.Sheets['BP']) : [];
+  const realMatrix = workbook.Sheets['Realizado'] ? extractSheetMatrix(workbook.Sheets['Realizado']) : [];
+  MONTHS = extractMonthHeaders(bpMatrix.length ? bpMatrix : realMatrix);
+  consolidatedSeries = workbook.Sheets['Consolidado'] ? extractConsolidatedSeries(extractSheetMatrix(workbook.Sheets['Consolidado'])) : null;
+  const bpMap = workbook.Sheets['BP'] ? extractMonthlyMap(extractSheetMatrix(workbook.Sheets['BP'])) : new Map();
+  const realMap = workbook.Sheets['Realizado'] ? extractMonthlyMap(extractSheetMatrix(workbook.Sheets['Realizado'])) : new Map();
+  const milestoneMap = workbook.Sheets['Marcos'] ? extractMilestoneMap(extractSheetMatrix(workbook.Sheets['Marcos'])) : new Map();
+  evolutionRagMap = workbook.Sheets['Evolução'] ? extractEvolutionRagMap(extractSheetMatrix(workbook.Sheets['Evolução'])) : new Map();
+  TODAY_MONTH = getLatestRagMonth() ?? computeTodayMonth(realMap);
+  portfolioBudget = pmoRows.slice(1).reduce((max, row) => Math.max(max, parseNumber(row[22])), 0);
+  const projects = pmoRows.slice(1).map(row => {
+    const id = normalizeCode(row[1]);
+    if (!id) return null;
+    const budget = parseNumber(row[24]);
+    const monthPlan = bpMap.get(id) || new Array(MONTHS.length).fill(0);
+    const rawReal = realMap.get(id) || new Array(MONTHS.length).fill(0);
+    const monthReal = rawReal.map((value, index) => index <= TODAY_MONTH ? value : null);
+    const milestoneInfo = milestoneMap.get(id) || {};
+    const firstPlanned = monthPlan.findIndex(v => v > 0);
+    const plannedStart = firstPlanned === -1 ? 0 : firstPlanned;
+    const plannedEnd = Math.max(plannedStart, ...monthPlan.map((v, index) => v > 0 ? index : 0));
+    const start = Number.isInteger(milestoneInfo.start) ? milestoneInfo.start : plannedStart;
+    const end = Math.max(start, Number.isInteger(milestoneInfo.end) ? milestoneInfo.end : plannedEnd);
+    const cumulativePlan = sumArr(monthPlan.slice(0, TODAY_MONTH + 1));
+    const cumulativeReal = sumArr(monthReal.filter(v => v !== null));
+    const totalPlanned = Math.max(sumArr(monthPlan), budget, 1);
+    const planPct = Math.min(100, Math.round(safePct(cumulativePlan, totalPlanned)));
+    const realPct = Math.min(100, Math.round(safePct(cumulativeReal, totalPlanned)));
+    const eac = Math.max(budget, cumulativeReal + sumArr(monthPlan.slice(TODAY_MONTH + 1)));
+    const monthFc = genMonthlyForecast(monthPlan, monthReal, { eac, budget: Math.max(1, budget), end });
+    return {
+      id,
+      nome: normalizeText(row[0]) || id,
+      area: normalizeText(row[13]) || normalizeText(row[3]) || '-',
+      areaEstrategica: normalizeText(row[3]) || '-',
+      statusPortfolio: normalizeText(row[6]) || '-',
+      areaResponsavel: normalizeText(row[13]) || '-',
+      sponsor: normalizeText(row[14]) || '-',
+      responsavelNegocio: normalizeText(row[15]) || '-',
+      responsavelExecucao: normalizeText(row[16]) || '-',
+      businessPlan: normalizeText(row[23]) || '-',
+      reportDiretoria: normalizeText(row[8]) || '-',
+      resp: normalizeText(row[16]) || normalizeText(row[15]) || '-',
+      budget,
+      eac,
+      planPct,
+      realPct,
+      start,
+      end,
+      startDate: milestoneInfo.startDate || null,
+      endDate: milestoneInfo.endDate || null,
+      risco: 0,
+      freq: normalizeText(row[8]) || '-',
+      status: normalizeStatus(row[6], planPct, realPct),
+      rag: getProjectRag(id),
+      completionPct: getProjectEvolution(id).completionPct,
+      sv: getProjectEvolution(id).sv,
+      milestones: milestoneInfo.milestones || [],
+      monthPlan,
+      monthRealSource: rawReal,
+      monthReal,
+      monthFc
+    };
+  }).filter(Boolean);
+  if (!projects.length) throw new Error('Nenhum projeto encontrado na aba PMO.');
+  return projects;
+}
+
+function refreshDashboard() {
+  syncProjectsToSelectedMonth();
+  recomputePortfolio();
+  renderMeta();
+  renderMonthFilter();
+  renderStrategicPie();
+  renderRagPie();
+  renderRagCard();
+  renderPortfolioBudgetCard();
+  renderBudgetTopdown();
+  renderProjTable();
+  renderCronKPIs();
+  renderSchedulePies();
+  renderGantt();
+  renderSpiProjectChart();
+  renderSpiTrendChart();
+  renderFinKPIs();
+  renderSCurve();
+  renderDevBars();
+  renderTradeoffPies();
+  renderCpiChart();
+  renderCpiTrendChart();
+}
+
+function loadFallbackData() {
+  MONTHS = [...DEFAULT_MONTH_LABELS];
+  portfolioBudget = 13136157;
+  projData = buildProjectDataset(PROJECTS);
+  refreshDashboard();
+}
+
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // HELPERS
-// ════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const fmt = (n) => 'R$ ' + (n >= 1e6 ? (n/1e6).toFixed(2).replace('.', ',') + 'M' : (n/1e3).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + 'k');
 const fmtM = (n) => n >= 1e6 ? (n/1e6).toFixed(1).replace('.', ',') + 'M' : (n/1e3).toFixed(0) + 'k';
+const fmtMM = (n) => 'R$ ' + ((Number.isFinite(n) ? n : 0) / 1e6).toFixed(2).replace('.', ',') + ' MM';
+const fmtBRL = (n) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number.isFinite(n) ? n : 0);
+const formatMonthLabel = (label) => {
+  const raw = normalizeText(label);
+  if (!raw.includes('/')) return raw;
+  const [m, y] = raw.split('/');
+  return m.charAt(0).toUpperCase() + m.slice(1, 3) + '/' + y;
+};
 
 function pctColor(spi) {
   if (spi >= 0.95) return 'var(--green)';
@@ -930,47 +2089,283 @@ function pctColor(spi) {
   return 'var(--red)';
 }
 
-// ════════════════════════════════════════════
-// PAGE 1
-// ════════════════════════════════════════════
-function renderKPIs() {
-  const row = document.getElementById('kpi-row');
-  const kpis = [
-    { label:'Orçamento Total', value: 'R$ ' + (totalBudget/1e6).toFixed(2).replace('.',',') + 'M',
-      sub: '12 projetos ativos', accent: '#2563eb' },
-    { label:'Desvio de Orçamento', value: (desvioOrc >= 0 ? '+' : '') + desvioOrc.toFixed(1) + '%',
-      sub: 'EAC vs Budget', delta: desvioOrc <= 0 ? 'pos' : desvioOrc < 5 ? 'neu' : 'neg',
-      deltaText: (desvioOrc >= 0 ? '+' : '') + fmtM(totalEAC - totalBudget),
-      accent: desvioOrc <= 0 ? 'var(--green)' : desvioOrc < 5 ? 'var(--amber)' : 'var(--red)' },
-    { label:'Índice de Prazo (SPI)', value: avgSPI.toFixed(2),
-      sub: 'Média do portfolio',
-      delta: avgSPI >= 0.95 ? 'pos' : avgSPI >= 0.8 ? 'neu' : 'neg',
-      deltaText: avgSPI >= 0.95 ? 'No prazo' : avgSPI >= 0.8 ? 'Alerta' : 'Atrasado',
-      accent: pctColor(avgSPI) },
-    { label:'CPI (Custo)', value: cpi.toFixed(2),
-      sub: 'Realizado / Planejado',
-      delta: cpi >= 0.95 ? 'pos' : cpi >= 0.8 ? 'neu' : 'neg',
-      deltaText: cpi >= 1 ? 'Sob controle' : cpi >= 0.8 ? 'Alerta' : 'Crítico',
-      accent: pctColor(cpi) },
-    { label:'Índice de Risco', value: avgRisco.toFixed(1) + '/10',
-      sub: 'Score médio do portfolio',
-      delta: avgRisco <= 4 ? 'pos' : avgRisco <= 7 ? 'neu' : 'neg',
-      deltaText: avgRisco <= 4 ? 'Baixo' : avgRisco <= 7 ? 'Médio' : 'Alto',
-      accent: avgRisco <= 4 ? 'var(--green)' : avgRisco <= 7 ? 'var(--amber)' : 'var(--red)' },
-  ];
-  row.innerHTML = kpis.map(k => `
-    <div class="kpi-card" style="--accent:${k.accent}">
-      <div class="kpi-label">${k.label}</div>
-      <div class="kpi-value">${k.value}</div>
-      <div class="kpi-sub">
-        ${k.delta ? `<span class="kpi-delta ${k.delta}">${k.deltaText}</span>` : ''}
-        ${k.sub}
+function getPortfolioStatusTone(status) {
+  const raw = normalizeText(status).toLowerCase();
+  if (raw.includes('susp') || raw.includes('despri')) return 'red';
+  if (raw.includes('conclu')) return 'green';
+  if (raw.includes('atras')) return 'amber';
+  if (raw.includes('a iniciar') || raw.includes('pendente') || raw.includes('nao iniciado') || raw.includes('não iniciado') || raw.includes('parado')) return 'darkgray';
+  if (raw.includes('andamento') || raw.includes('execu') || raw.includes('ativo')) return 'blue';
+  return 'gray';
+}
+
+function getPortfolioStatusStyles(status) {
+  const tone = getPortfolioStatusTone(status);
+  if (tone === 'green') return { color: 'var(--green)', bg: 'var(--green-l)' };
+  if (tone === 'blue') return { color: 'var(--blue)', bg: 'var(--blue-l)' };
+  if (tone === 'amber') return { color: 'var(--amber)', bg: 'var(--amber-l)' };
+  if (tone === 'red') return { color: 'var(--red)', bg: 'var(--red-l)' };
+  if (tone === 'darkgray') return { color: '#334155', bg: '#e2e8f0' };
+  return { color: '#64748b', bg: '#e2e8f0' };
+}
+
+function getRagInfo(value) {
+  const raw = normalizeText(value).toLowerCase();
+  if (raw.includes('acima') || raw.includes('verde')) return { label: 'Acima do índice', color: 'var(--green)', bg: 'var(--green-l)', key: 'acima' };
+  if (raw.includes('aten') || raw.includes('laranja') || raw.includes('atras')) return { label: 'Atenção', color: 'var(--amber)', bg: 'var(--amber-l)', key: 'atencao' };
+  if (raw.includes('prazo') || raw.includes('azul')) return { label: 'No prazo', color: 'var(--blue)', bg: 'var(--blue-l)', key: 'prazo' };
+  return { label: value || '-', color: '#64748b', bg: '#e2e8f0', key: 'sem' };
+}
+
+function renderMeta() {
+  const now = new Date();
+  const monthShort = formatMonthLabel(MONTHS[TODAY_MONTH] || MONTHS[0]);
+  const metaCorte = document.getElementById('meta-corte');
+  const metaPeriod = document.getElementById('meta-period');
+  const metaMonth = document.getElementById('meta-month');
+  const metaGestor = document.getElementById('meta-gestor');
+  const metaTotal = document.getElementById('meta-total-projects');
+  const metaBudget = document.getElementById('meta-budget');
+  const metaEac = document.getElementById('meta-eac');
+  if (metaCorte) metaCorte.textContent = now.toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
+  if (metaBudget) metaBudget.textContent = 'R$ ' + (totalBudget/1e6).toFixed(2).replace('.',',') + ' M';
+  if (metaEac) metaEac.textContent = 'R$ ' + (totalEAC/1e6).toFixed(2).replace('.',',') + ' M';
+  if (metaMonth) metaMonth.textContent = monthShort + ' ' + now.getFullYear();
+  if (metaPeriod) metaPeriod.textContent = `${formatMonthLabel(MONTHS[0])} – ${formatMonthLabel(MONTHS[MONTHS.length - 1])}`;
+  if (metaGestor) metaGestor.textContent = 'Escritório de Projetos';
+  if (metaTotal) metaTotal.textContent = projData.length + ' projetos';
+  const pd = document.getElementById('print-date');
+  const pb = document.getElementById('print-budget');
+  const pe = document.getElementById('print-eac');
+  if (pd) pd.textContent = 'Data de corte: ' + now.toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
+  if (pb) pb.textContent = 'R$ ' + (totalBudget/1e6).toFixed(2).replace('.',',') + ' M';
+  if (pe) pe.textContent = 'R$ ' + (totalEAC/1e6).toFixed(2).replace('.',',') + ' M';
+}
+
+function renderMonthFilter() {
+  const options = document.getElementById('filter-options');
+  const label = document.getElementById('filter-label');
+  if (label) label.textContent = formatMonthLabel(MONTHS[TODAY_MONTH] || MONTHS[0]);
+  if (!options) return;
+  options.innerHTML = MONTHS.map((monthLabel, index) =>
+    `<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:#29384d;cursor:pointer;"><input type="radio" name="fmonth" value="${index}" ${index === TODAY_MONTH ? 'checked' : ''}>${formatMonthLabel(monthLabel)}</label>`
+  ).join('');
+}
+
+function renderPortfolioBudgetCard() {
+  const el = document.getElementById('portfolio-budget-card');
+  const breakdown = document.getElementById('portfolio-budget-breakdown');
+  if (!el) return;
+  el.textContent = fmtMM(portfolioBudget || totalBudget);
+  if (breakdown) {
+    const cadastro = projData
+      .filter(p => normalizeText(p.areaEstrategica).toLowerCase() === 'cadastro')
+      .reduce((s, p) => s + (p.budget || 0), 0);
+    const ppd = projData
+      .filter(p => normalizeText(p.areaEstrategica).toLowerCase() === 'ppd')
+      .reduce((s, p) => s + (p.budget || 0), 0);
+    const total = Math.max(1, cadastro + ppd);
+    breakdown.innerHTML = `
+      <svg class="budget-flow-svg" viewBox="0 0 100 50" preserveAspectRatio="none">
+        <line x1="50" y1="0" x2="28" y2="34" stroke="#059669" stroke-width="2.7" stroke-linecap="round"></line>
+        <line x1="50" y1="0" x2="72" y2="34" stroke="#2563eb" stroke-width="2.7" stroke-linecap="round"></line>
+      </svg>
+      <div>
+        <div class="budget-split" style="background:var(--green);">
+          <div class="budget-split-label">Cadastro</div>
+          <div class="budget-split-value">${fmtMM(cadastro)}</div>
+        </div>
+        <div class="budget-split-pct" style="color:var(--green);">${((cadastro / total) * 100).toFixed(1).replace('.', ',')}% do total</div>
       </div>
-    </div>`).join('');
+      <div>
+        <div class="budget-split" style="background:var(--blue);">
+          <div class="budget-split-label">PPD</div>
+          <div class="budget-split-value">${fmtMM(ppd)}</div>
+        </div>
+        <div class="budget-split-pct" style="color:var(--blue);">${((ppd / total) * 100).toFixed(1).replace('.', ',')}% do total</div>
+      </div>
+    `;
+  }
+}
+
+function renderBudgetTopdown() {
+  const el = document.getElementById('budget-topdown');
+  if (!el) return;
+  const rows = [...projData]
+    .sort((a, b) => (b.budget || 0) - (a.budget || 0))
+    .slice(0, 6);
+  const maxBudget = Math.max(1, ...rows.map(p => p.budget || 0));
+  el.innerHTML = rows.map(p => `
+    <div class="sv-row">
+      <div>
+        <div class="sv-name">${p.nome}</div>
+        <div class="sv-track" style="background:#dbeafe;"><div class="sv-fill" style="background:var(--blue);width:${Math.max(4, ((p.budget || 0) / maxBudget) * 100)}%;"></div></div>
+      </div>
+      <div class="sv-days" style="color:var(--blue);">${fmtMM(p.budget)}</div>
+    </div>
+  `).join('');
+}
+
+function renderRagCard() {
+  const total = Math.max(1, projData.length);
+  const cadastro = projData.filter(p => normalizeText(p.areaEstrategica).toLowerCase() === 'cadastro').length;
+  const ppd = projData.filter(p => normalizeText(p.areaEstrategica).toLowerCase() === 'ppd').length;
+  const suspensos = projData.filter(p => getPortfolioStatusTone(p.statusPortfolio) === 'red').length;
+  const cells = [
+    { cell: 'rag-cron-cell', note: 'rag-cron', label: `${cadastro}/${total}`, cls: cadastro >= ppd ? 'g' : 'a' },
+    { cell: 'rag-fin-cell', note: 'rag-fin', label: `${ppd}/${total}`, cls: ppd > 0 ? 'g' : '' },
+    { cell: 'rag-risk-cell', note: 'rag-risk', label: suspensos ? `${suspensos} projeto(s)` : 'Nenhum', cls: suspensos ? 'r' : 'g' }
+  ];
+  cells.forEach((item) => {
+    const cell = document.getElementById(item.cell);
+    const note = document.getElementById(item.note);
+    if (cell) cell.className = 'rag-cell active ' + item.cls;
+    if (note) note.textContent = item.label;
+  });
+  const worst = suspensos ? { cls: 'r', label: 'ALERTA', color: '#dc2626' } : ppd > 0 ? { cls: 'g', label: 'OK', color: '#059669' } : { cls: '', label: '—', color: '#64748b' };
+  const global = document.getElementById('rag-global');
+  if (global) {
+    global.style.color = worst.color;
+    global.innerHTML = `<i style="background:${worst.color}"></i>${worst.label}`;
+  }
+}
+
+function openFilter() {
+  const modal = document.getElementById('filter-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeFilter() {
+  const modal = document.getElementById('filter-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function applyFilter() {
+  const sel = document.querySelector('input[name="fmonth"]:checked');
+  if (sel) TODAY_MONTH = Number(sel.value || 0);
+  closeFilter();
+  refreshDashboard();
+}
+
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// PAGE 1
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+function renderStrategicPie() {
+  const svg = document.getElementById('strategic-pie-svg');
+  if (!svg) return;
+
+  const groups = new Map();
+  projData.forEach((p) => {
+    const label = normalizeText(p.areaEstrategica) || '-';
+    groups.set(label, (groups.get(label) || 0) + 1);
+  });
+
+  const palette = ['#f59e0b', '#7c3aed'];
+  const data = [...groups.entries()].map(([label, value], index) => {
+    const key = normalizeText(label).toLowerCase();
+    const color = key === 'cadastro' ? '#059669' : key === 'ppd' ? '#2563eb' : palette[index % palette.length];
+    return { label, value, color };
+  });
+  const total = data.reduce((sum, item) => sum + item.value, 0) || 1;
+  const cx = 205, cy = 94, radius = 80, innerRadius = 42;
+  let startAngle = -Math.PI / 2;
+
+  const polar = (r, angle) => ({ x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r });
+  const arcPath = (rOuter, rInner, start, end) => {
+    const a = polar(rOuter, start);
+    const b = polar(rOuter, end);
+    const c = polar(rInner, end);
+    const d = polar(rInner, start);
+    const largeArc = end - start > Math.PI ? 1 : 0;
+    return `M ${a.x.toFixed(2)} ${a.y.toFixed(2)} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${b.x.toFixed(2)} ${b.y.toFixed(2)} L ${c.x.toFixed(2)} ${c.y.toFixed(2)} A ${rInner} ${rInner} 0 ${largeArc} 0 ${d.x.toFixed(2)} ${d.y.toFixed(2)} Z`;
+  };
+
+  let out = '';
+  data.forEach((item) => {
+    const slice = (item.value / total) * Math.PI * 2;
+    const endAngle = startAngle + slice;
+    const midAngle = startAngle + slice / 2;
+    const pct = ((item.value / total) * 100).toFixed(1).replace('.', ',');
+    const direction = Math.cos(midAngle) >= 0 ? 1 : -1;
+    const edge = polar(radius + 2, midAngle);
+    const elbow = polar(radius + 16, midAngle);
+    const labelX = direction > 0 ? 330 : 22;
+    const lineEndX = direction > 0 ? labelX - 12 : labelX + 54;
+    const anchor = direction > 0 ? 'start' : 'start';
+    const nameY = elbow.y - 16;
+    const valueY = elbow.y - 1;
+    const pctY = elbow.y + 12;
+    out += `<path d="${arcPath(radius, innerRadius, startAngle, endAngle)}" fill="${item.color}"></path>`;
+    out += `<polyline points="${edge.x.toFixed(2)},${edge.y.toFixed(2)} ${elbow.x.toFixed(2)},${elbow.y.toFixed(2)} ${lineEndX.toFixed(2)},${elbow.y.toFixed(2)}" fill="none" stroke="${item.color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></polyline>`;
+    out += `<text x="${labelX}" y="${nameY.toFixed(2)}" text-anchor="${anchor}" font-size="12" font-weight="800" fill="${item.color}" font-family="DM Sans,sans-serif">${item.label.toUpperCase()}</text>`;
+    out += `<text x="${labelX}" y="${valueY.toFixed(2)}" text-anchor="${anchor}" font-size="14" font-weight="800" fill="#0f172a" font-family="DM Sans,sans-serif">${item.value}</text>`;
+    out += `<text x="${labelX}" y="${pctY.toFixed(2)}" text-anchor="${anchor}" font-size="11" fill="#475569" font-family="DM Sans,sans-serif">${pct}%</text>`;
+    startAngle = endAngle;
+  });
+
+  out += `<circle cx="${cx}" cy="${cy}" r="${innerRadius - 2}" fill="white"></circle>`;
+  out += `<text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="24" font-weight="700" fill="#0f172a" font-family="DM Sans,sans-serif">${projData.length}</text>`;
+  out += `<text x="${cx}" y="${cy + 14}" text-anchor="middle" font-size="11" fill="#64748b" font-family="DM Sans,sans-serif">Projetos</text>`;
+  svg.innerHTML = out;
+}
+
+function renderRagPie() {
+  const svg = document.getElementById('rag-pie-svg');
+  if (!svg) return;
+  const base = [
+    { key: 'prazo', label: 'No prazo', value: 0, color: '#2563eb' },
+    { key: 'atencao', label: 'Atenção', value: 0, color: '#d97706' },
+    { key: 'acima', label: 'Acima do índice', value: 0, color: '#059669' }
+  ];
+  projData.forEach(p => {
+    const info = getRagInfo(p.rag);
+    const item = base.find(x => x.key === info.key);
+    if (item) item.value += 1;
+  });
+  const data = base.filter(item => item.value > 0);
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  if (!total) {
+    svg.innerHTML = '<text x="180" y="112" text-anchor="middle" font-size="12" fill="#64748b" font-family="DM Sans,sans-serif">Sem RAG no mês filtrado</text>';
+    return;
+  }
+  const cx = 205, cy = 94, radius = 78, innerRadius = 40;
+  let startAngle = -Math.PI / 2;
+  const polar = (r, angle) => ({ x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r });
+  const arcPath = (rOuter, rInner, start, end) => {
+    const a = polar(rOuter, start);
+    const b = polar(rOuter, end);
+    const c = polar(rInner, end);
+    const d = polar(rInner, start);
+    const largeArc = end - start > Math.PI ? 1 : 0;
+    return `M ${a.x.toFixed(2)} ${a.y.toFixed(2)} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${b.x.toFixed(2)} ${b.y.toFixed(2)} L ${c.x.toFixed(2)} ${c.y.toFixed(2)} A ${rInner} ${rInner} 0 ${largeArc} 0 ${d.x.toFixed(2)} ${d.y.toFixed(2)} Z`;
+  };
+  let out = '';
+  data.forEach((item) => {
+    const slice = (item.value / total) * Math.PI * 2;
+    const endAngle = startAngle + slice;
+    const midAngle = startAngle + slice / 2;
+    const pct = ((item.value / total) * 100).toFixed(1).replace('.', ',');
+    const direction = Math.cos(midAngle) >= 0 ? 1 : -1;
+    const edge = polar(radius + 2, midAngle);
+    const elbow = polar(radius + 16, midAngle);
+    const labelX = direction > 0 ? 330 : 22;
+    const lineEndX = direction > 0 ? labelX - 12 : labelX + 54;
+    out += `<path d="${arcPath(radius, innerRadius, startAngle, endAngle)}" fill="${item.color}"></path>`;
+    out += `<polyline points="${edge.x.toFixed(2)},${edge.y.toFixed(2)} ${elbow.x.toFixed(2)},${elbow.y.toFixed(2)} ${lineEndX.toFixed(2)},${elbow.y.toFixed(2)}" fill="none" stroke="${item.color}" stroke-width="1.5"></polyline>`;
+    out += `<text x="${labelX}" y="${(elbow.y - 12).toFixed(2)}" text-anchor="start" font-size="12" font-weight="800" fill="${item.color}" font-family="DM Sans,sans-serif">${item.label.toUpperCase()}</text>`;
+    out += `<text x="${labelX}" y="${(elbow.y + 4).toFixed(2)}" text-anchor="start" font-size="14" font-weight="800" fill="#0f172a" font-family="DM Sans,sans-serif">${item.value}</text>`;
+    out += `<text x="${labelX}" y="${(elbow.y + 17).toFixed(2)}" text-anchor="start" font-size="11" fill="#475569" font-family="DM Sans,sans-serif">${pct}%</text>`;
+    startAngle = endAngle;
+  });
+  out += `<circle cx="${cx}" cy="${cy}" r="${innerRadius - 2}" fill="white"></circle>`;
+  out += `<text x="${cx}" y="${cy - 3}" text-anchor="middle" font-size="24" font-weight="700" fill="#0f172a" font-family="DM Sans,sans-serif">${total}</text>`;
+  out += `<text x="${cx}" y="${cy + 14}" text-anchor="middle" font-size="11" fill="#64748b" font-family="DM Sans,sans-serif">Projetos</text>`;
+  svg.innerHTML = out;
 }
 
 function renderHealthSummary() {
   const el = document.getElementById('health-summary');
+  if (!el) return;
   const delayed = projData.filter(p => p.realPct < p.planPct * 0.85).length;
   const overBudget = projData.filter(p => p.eac > p.budget * 1.02).length;
   el.innerHTML = `
@@ -991,7 +2386,7 @@ function renderHealthSummary() {
     </div>
     <div class="s-box" style="border-left: 3px solid var(--blue);">
       <div class="s-box-val" style="color:var(--blue)">${delayed}</div>
-      <div class="s-box-lab">⏱ Com atraso</div>
+      <div class="s-box-lab">â± Com atraso</div>
       <div style="font-size:11.5px;color:var(--ink-600)">Realizando abaixo do planejado</div>
     </div>
     <div class="s-box" style="border-left: 3px solid var(--red);">
@@ -1001,7 +2396,7 @@ function renderHealthSummary() {
     </div>
     <div class="s-box" style="border-left: 3px solid var(--amber);">
       <div class="s-box-val" style="color:var(--amber)">${projData.filter(p=>p.risco >= 8).length}</div>
-      <div class="s-box-lab">⚠️ Alto Risco</div>
+      <div class="s-box-lab">âš ï¸ Alto Risco</div>
       <div style="font-size:11.5px;color:var(--ink-600)">Score de risco ≥ 8/10</div>
     </div>
   `;
@@ -1010,93 +2405,142 @@ function renderHealthSummary() {
 function renderProjTable() {
   const tbody = document.getElementById('proj-tbody');
   tbody.innerHTML = projData.map(p => {
-    const desvio = (p.eac - p.budget) / p.budget * 100;
-    const desvioClass = desvio > 5 ? 'eac-over' : desvio < -2 ? 'eac-under' : 'eac-ok';
-    const healthColor = p.status === 'verde' ? 'var(--green)' : p.status === 'amarelo' ? 'var(--amber)' : 'var(--red)';
-    const spiP = p.realPct / Math.max(1, p.planPct);
-    const planBarColor = '#2563eb';
-    const realBarColor = spiP >= 0.95 ? 'var(--green)' : spiP >= 0.8 ? 'var(--amber)' : 'var(--red)';
+    const statusStyle = getPortfolioStatusStyles(p.statusPortfolio);
+    const ragInfo = getRagInfo(p.rag);
 
     return `
     <tr>
-      <td><span class="proj-id">${p.id}</span></td>
       <td>
         <div class="proj-name">${p.nome}</div>
-        <div class="proj-area">${p.area}</div>
       </td>
-      <td style="font-size:12px;color:var(--ink-600)">${p.resp}</td>
-      <td><span class="budget-cell">${fmt(p.budget)}</span></td>
-      <td><span class="budget-cell ${desvioClass}">${fmt(p.eac)}</span></td>
+      <td>${p.areaEstrategica || p.area || '-'}</td>
       <td>
-        <span class="kpi-delta ${desvio > 5 ? 'neg' : desvio < -2 ? 'pos' : 'neu'}">
-          ${desvio >= 0 ? '+' : ''}${desvio.toFixed(1)}%
+        <span class="health-dot" style="background:${statusStyle.color};"></span>
+        <span style="font-size:11px;font-weight:600;color:${statusStyle.color};">
+          ${p.statusPortfolio || '-'}
         </span>
       </td>
-      <td style="min-width:100px;">
-        <div style="font-size:11px;font-weight:600;color:${planBarColor};margin-bottom:3px;">${p.planPct}%</div>
-        <div class="mini-bar-track">
-          <div class="mini-bar-fill" style="width:${p.planPct}%;background:${planBarColor};"></div>
-        </div>
-      </td>
-      <td style="min-width:100px;">
-        <div style="font-size:11px;font-weight:600;color:${realBarColor};margin-bottom:3px;">${p.realPct}%</div>
-        <div class="mini-bar-track">
-          <div class="mini-bar-fill" style="width:${p.realPct}%;background:${realBarColor};"></div>
-        </div>
-      </td>
-      <td>
-        <span class="health-dot" style="background:${healthColor};"></span>
-        <span style="font-size:11px;font-weight:600;color:${healthColor};">
-          ${p.status === 'verde' ? 'Verde' : p.status === 'amarelo' ? 'Amarelo' : 'Vermelho'}
-        </span>
-      </td>
-      <td><span class="freq-chip">${p.freq}</span></td>
-      <td>
-        <span class="status-pill" style="background:${p.status === 'verde' ? 'var(--green-l)' : p.status === 'amarelo' ? 'var(--amber-l)' : 'var(--red-l)'};color:${healthColor};">
-          <span style="width:6px;height:6px;border-radius:50%;background:${healthColor};"></span>
-          ${p.status === 'verde' ? 'No prazo' : p.status === 'amarelo' ? 'Atenção' : 'Crítico'}
-        </span>
-      </td>
+      <td><span class="freq-chip" style="background:${ragInfo.bg};color:${ragInfo.color};">${ragInfo.label}</span></td>
+      <td>${p.areaResponsavel || p.area || '-'}</td>
+      <td>${p.sponsor || '-'}</td>
+      <td>${p.responsavelNegocio || '-'}</td>
+      <td>${p.responsavelExecucao || p.resp || '-'}</td>
+      <td><span class="freq-chip">${p.businessPlan || '-'}</span></td>
+      <td><span class="budget-cell">${fmtMM(p.budget)}</span></td>
+      <td><span class="freq-chip">${p.reportDiretoria || p.freq || '-'}</span></td>
     </tr>`;
   }).join('');
 }
 
-// ════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // PAGE 2 — GANTT
-// ════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+function renderSchedulePies() {
+  const statusSvg = document.getElementById('schedule-status-pie');
+  const areaSvg = document.getElementById('schedule-area-pie');
+  const isLate = p => Math.max(0, Math.round(Number(p.sv) || 0)) > 0;
+  const onTime = projData.filter(p => !isLate(p)).length;
+  const late = projData.filter(isLate).length;
+
+  function donutPath(cx, cy, r, start, end) {
+    const a0 = (start - 90) * Math.PI / 180;
+    const a1 = (end - 90) * Math.PI / 180;
+    const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
+    const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+    return `M ${cx} ${cy} L ${x0} ${y0} A ${r} ${r} 0 ${end - start > 180 ? 1 : 0} 1 ${x1} ${y1} Z`;
+  }
+
+  function drawPie(svg, items, centerText) {
+    if (!svg) return;
+    const total = Math.max(1, items.reduce((s, i) => s + i.value, 0));
+    let angle = 0;
+    let out = '';
+    items.forEach(item => {
+      if (!item.value) return;
+      const next = angle + item.value / total * 360;
+      out += `<path d="${donutPath(86, 82, 68, angle, next)}" fill="${item.color}" stroke="#fff" stroke-width="1"/>`;
+      angle = next;
+    });
+    out += `<circle cx="86" cy="82" r="38" fill="#fff"/>`;
+    out += `<text x="86" y="79" font-size="20" font-weight="800" fill="#0f172a" text-anchor="middle">${total}</text>`;
+    out += `<text x="86" y="96" font-size="10" fill="#64748b" text-anchor="middle">${centerText}</text>`;
+    out += items.map((item, i) => {
+      const pct = total ? (item.value / total * 100) : 0;
+      return `<g transform="translate(172 ${34 + i * 25})">
+        <rect x="0" y="0" width="9" height="9" rx="2" fill="${item.color}"/>
+        <text x="16" y="8" font-size="10" font-weight="800" fill="#0f172a">${item.label}</text>
+        <text x="16" y="21" font-size="9" fill="#64748b">${item.value} projetos · ${pct.toFixed(1).replace('.', ',')}%</text>
+      </g>`;
+    }).join('');
+    svg.innerHTML = out;
+  }
+
+  drawPie(statusSvg, [
+    { label: 'No prazo', value: onTime, color: '#059669' },
+    { label: 'Atrasados', value: late, color: '#d97706' }
+  ], 'Projetos');
+
+  const areaItems = ['Cadastro', 'PPD'].flatMap(area => {
+    const items = projData.filter(p => normalizeText(p.areaEstrategica || p.area).toLowerCase() === area.toLowerCase());
+    return [
+      { label: `${area} no prazo`, value: items.filter(p => !isLate(p)).length, color: area === 'Cadastro' ? '#059669' : '#2563eb' },
+      { label: `${area} atrasado`, value: items.filter(isLate).length, color: area === 'Cadastro' ? '#86efac' : '#93c5fd' }
+    ];
+  });
+  drawPie(areaSvg, areaItems, 'Áreas');
+}
+
 function renderCronKPIs() {
   const el = document.getElementById('cron-kpis');
-  const onTrack = projData.filter(p => p.realPct >= p.planPct * 0.9).length;
-  const late = projData.filter(p => p.realPct < p.planPct * 0.85).length;
-  const totalMilestones = projData.reduce((s, p) => s + p.milestones.length, 0);
-  const completedMilestones = projData.reduce((s, p) =>
-    s + p.milestones.filter(m => m.m < TODAY_MONTH).length, 0);
+  const svRows = projData
+    .map(p => ({ nome: p.nome, atraso: Math.max(0, Math.round(Math.abs(Number(p.sv) || 0))) }))
+    .filter(p => p.atraso > 0)
+    .sort((a, b) => b.atraso - a.atraso);
+  const avgDelay = projData.length ? Math.round(projData.reduce((s, p) => s + Math.max(0, Math.abs(Number(p.sv) || 0)), 0) / projData.length) : 0;
+  const maxDelay = Math.max(1, ...svRows.map(p => p.atraso));
+  const topDelayHtml = svRows.slice(0, 4).map(p => `
+    <div class="sv-row">
+      <div>
+        <div class="sv-name">${p.nome}</div>
+        <div class="sv-track"><div class="sv-fill" style="width:${Math.max(4, (p.atraso / maxDelay) * 100)}%;"></div></div>
+      </div>
+      <div class="sv-days">${p.atraso}d</div>
+    </div>
+  `).join('') || '<div class="kpi-sub">Sem atraso registrado no mês filtrado.</div>';
 
-  el.innerHTML = [
-    { label:'Projetos no Prazo', value: onTrack + '/' + projData.length, accent:'var(--green)', sub:'SPI ≥ 0.90' },
-    { label:'Projetos com Atraso', value: late + '/' + projData.length, accent:'var(--red)', sub:'SPI < 0.85' },
-    { label:'Marcos Concluídos', value: completedMilestones + '/' + totalMilestones, accent:'var(--amber)', sub:'Entregas realizadas' },
-    { label:'Mês de Referência', value: MONTHS[TODAY_MONTH] + ' 2025', accent:'var(--blue)', sub:'Data base: Abr/25' },
-  ].map(k => `
-    <div class="kpi-card" style="--accent:${k.accent}">
-      <div class="kpi-label">${k.label}</div>
-      <div class="kpi-value" style="font-size:22px;">${k.value}</div>
-      <div class="kpi-sub">${k.sub}</div>
-    </div>`).join('');
+  el.innerHTML = `
+    <div class="kpi-card sv-card" style="--accent:var(--red)">
+      <div class="sv-head">
+        <div>
+          <div class="kpi-label">Desvio de Prazo (SV)</div>
+          <div class="kpi-sub">Top projetos com maior atraso</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="sv-avg">${avgDelay}d</div>
+          <div class="kpi-sub">média</div>
+        </div>
+      </div>
+      ${topDelayHtml}
+    </div>`;
 }
 
 function renderGantt() {
   const card = document.getElementById('gantt-card');
-  const MONTH_COLS = 12;
-  const todayPct = ((TODAY_MONTH + 0.5) / MONTH_COLS) * 100;
+  const visibleMonths = MONTHS.map((m, i) => ({ m, i }));
+  const MONTH_COLS = visibleMonths.length;
+  const cutoffDate = new Date();
+  const todayPct = getCutoffPositionPct(cutoffDate, MONTH_COLS);
+  const cutoffMonth = monthIndexFromDate(cutoffDate);
+  const highlightMonth = Number.isInteger(cutoffMonth) ? cutoffMonth : TODAY_MONTH;
 
   // Header
   let html = `
     <div class="gantt-header">
       <div class="gantt-header-label">Projeto</div>
+      <div class="gantt-header-label">Conclusão</div>
       <div class="gantt-months" style="display:grid;grid-template-columns:repeat(${MONTH_COLS},1fr);">
-        ${MONTHS.map((m, i) => `
-          <div class="gantt-month-cell" style="${i === TODAY_MONTH ? 'color:var(--red);font-weight:800;' : ''}">
+        ${visibleMonths.map(({m, i}) => `
+          <div class="gantt-month-cell" style="${i === highlightMonth ? 'color:#111827;font-weight:800;' : ''}">
             ${m}
           </div>`).join('')}
       </div>
@@ -1104,22 +2548,25 @@ function renderGantt() {
 
   // Rows
   projData.forEach(p => {
-    const durCols = p.end - p.start + 1;
-    const barLeft = (p.start / MONTH_COLS) * 100;
-    const barWidth = (durCols / MONTH_COLS) * 100;
-    const realWidth = barWidth * (p.realPct / 100);
-    const healthColor = p.status === 'verde' ? '#059669' : p.status === 'amarelo' ? '#d97706' : '#dc2626';
+    const startPct = getDatePositionPct(p.startDate, MONTH_COLS) ?? (p.start / MONTH_COLS) * 100;
+    const endPct = getDateEndPositionPct(p.endDate, MONTH_COLS) ?? ((p.end + 1) / MONTH_COLS) * 100;
+    const barLeft = Math.max(0, Math.min(100, startPct));
+    const barWidth = Math.max(1, Math.min(100 - barLeft, endPct - barLeft));
+    const progressPct = Math.max(0, Math.min(100, Math.round(Number.isFinite(p.completionPct) ? p.completionPct : p.realPct || 0)));
+    const ragInfo = getRagInfo(p.rag);
+    const healthColor = ragInfo.color;
 
-    const milestonesHtml = p.milestones.map(ms => {
-      const pos = ((ms.m + 0.5) / MONTH_COLS) * 100;
-      const isDone = ms.m < TODAY_MONTH;
-      const color = isDone ? '#059669' : ms.m === TODAY_MONTH ? '#d97706' : '#2563eb';
+    const milestonesHtml = p.milestones.map((ms, idx) => {
+      const parsedDate = ms.date || parseDateValue(ms.nome);
+      const pos = getDatePositionPct(parsedDate, MONTH_COLS) ?? ((ms.m + 0.5) / MONTH_COLS) * 100;
+      const color = '#111827';
+      const dateTop = 'calc(50% + 12px)';
       return `
         <div class="gantt-milestone"
-             style="left:${pos}%;background:${isDone ? color : 'white'};border-color:${color};"
+             style="left:${pos}%;background:#fff;border-color:${color};"
              title="${ms.nome}">
         </div>
-        <div style="position:absolute;left:${pos}%;transform:translateX(-50%);top:50%;margin-top:14px;
+        <div class="gantt-milestone-date" style="position:absolute;left:${pos}%;transform:translateX(-50%);top:${dateTop};
                     font-size:9px;color:${color};font-weight:600;white-space:nowrap;line-height:1;">
           ${ms.nome.length > 10 ? ms.nome.substring(0,10)+'…' : ms.nome}
         </div>`;
@@ -1128,24 +2575,24 @@ function renderGantt() {
     html += `
       <div class="gantt-row">
         <div class="gantt-row-label">
-          <div style="display:flex;align-items:center;gap:6px;">
+          <div style="display:flex;align-items:center;gap:6px;justify-content:flex-start;width:100%;">
             <span style="width:8px;height:8px;border-radius:50%;background:${healthColor};flex-shrink:0;"></span>
             <span class="gantt-row-name">${p.nome}</span>
           </div>
-          <div class="gantt-row-resp">${p.resp}</div>
+        </div>
+        <div class="gantt-progress-cell">
+          <div class="gantt-progress-value">${progressPct}%</div>
+          <div class="gantt-progress-track">
+            <div class="gantt-progress-fill" style="width:${progressPct}%;"></div>
+          </div>
         </div>
         <div class="gantt-row-chart">
           <!-- Today line -->
           <div class="gantt-today-line" style="left:${todayPct}%;"></div>
 
-          <!-- BG bar (planned) -->
-          <div class="gantt-bar-bg"
-               style="left:${barLeft}%;width:${barWidth}%;background:#dbeafe;">
-          </div>
-
-          <!-- Real bar -->
+          <!-- Bar -->
           <div class="gantt-bar-real"
-               style="left:${barLeft}%;width:${realWidth}%;background:${healthColor};">
+               style="left:${barLeft}%;width:${barWidth}%;background:${healthColor};">
           </div>
 
           <!-- Milestones -->
@@ -1157,23 +2604,57 @@ function renderGantt() {
   card.innerHTML = html;
 }
 
-// ════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // PAGE 3 — FINANCIAL
-// ════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function renderFinKPIs() {
   const el = document.getElementById('fin-kpis');
-  const totalForecast = projData.reduce((s, p) => {
-    const r = p.monthFc.filter(v => v !== null);
-    return s + r.reduce((a, b) => a + b, 0);
-  }, 0);
+  const selectedYear = String(MONTHS[TODAY_MONTH] || '').split('/').pop();
+  const yearIndexes = MONTHS.map((m, i) => String(m).split('/').pop() === selectedYear ? i : -1).filter(i => i >= 0);
+  const sumIndexes = (arr, indexes) => indexes.reduce((s, i) => s + (Number(arr[i]) || 0), 0);
+  const source = consolidatedSeries || {};
+  const fullYearBP = portfolioBudget || totalBudget;
+  const fullYearEAC = Number((source.eac || [])[TODAY_MONTH]) || totalEAC;
+  const ytdBP = Number((source.pv || [])[TODAY_MONTH]) || sumIndexes(source.bp || portMonthPlan, yearIndexes.filter(i => i <= TODAY_MONTH));
+  const ytdReal = Number((source.ac || [])[TODAY_MONTH]) || sumIndexes(source.realizado || portMonthReal, yearIndexes.filter(i => i <= TODAY_MONTH));
+  const saldo = fullYearBP - ytdReal;
+  const fmtFinShort = value => {
+    const n = Number.isFinite(value) ? value : 0;
+    if (Math.abs(n) >= 1e6) return `R$ ${(n / 1e6).toFixed(2).replace('.', ',')} MM`;
+    if (Math.abs(n) >= 1e3) return `R$ ${(n / 1e3).toFixed(1).replace('.', ',')} k`;
+    return fmtBRL(n);
+  };
+  const badge = (real, bp, label) => {
+    const pct = bp > 0 ? ((real - bp) / bp) * 100 : 0;
+    return {
+      text: `${pct >= 0 ? '+' : ''}${pct.toFixed(1).replace('.', ',')}% ${label}`,
+      bg: '#b8f7dc',
+      color: '#064e3b'
+    };
+  };
+  const fyBadge = badge(fullYearEAC, fullYearBP, 'Real + Forecast x BP');
+  const ytdBadge = badge(ytdReal, ytdBP, 'Planejado x Realizado');
+  const saldoDesvio = fullYearBP ? ((fullYearBP - saldo) / fullYearBP) * 100 : 0;
+  const saldoOk = saldo >= 0;
 
   el.innerHTML = [
-    { label:'Budget Total',     value:'R$ '+(totalBudget/1e6).toFixed(2).replace('.',',')+'M', sub:'Aprovado baseline', accent:'var(--blue)' },
-    { label:'Realizado até Abr',value:'R$ '+(totalReal/1e6).toFixed(2).replace('.',',')+'M',   sub:`${(totalReal/totalBudget*100).toFixed(1)}% do orçamento`, accent:'var(--green)' },
-    { label:'EAC (Projeção Final)',value:'R$ '+(totalEAC/1e6).toFixed(2).replace('.',',')+'M', sub:`Desvio: ${desvioOrc >= 0?'+':''}${desvioOrc.toFixed(1)}%`,
-      accent: desvioOrc <= 2 ? 'var(--green)' : desvioOrc <= 8 ? 'var(--amber)' : 'var(--red)' },
-    { label:'Forecast 2025',    value:'R$ '+(totalForecast/1e6).toFixed(2).replace('.',',')+'M', sub:'Estimativa de conclusão', accent:'var(--amber)' },
-  ].map(k => `
+    { label:'FULL YEAR', value:fmtFinShort(fullYearBP), suffix:'BP', subValue:fmtFinShort(fullYearEAC), subLabel:'Real + Forecast', badge:fyBadge, ref:true, accent:'var(--blue)', cardBg:'linear-gradient(180deg,#eff6ff 0%,#ffffff 72%)' },
+    { label:'YEAR TO DATE', value:fmtFinShort(ytdBP), suffix:'BP', subValue:fmtFinShort(ytdReal), subLabel:'Realizado', badge:ytdBadge, ref:true, accent:'var(--green)', cardBg:'linear-gradient(180deg,#ecfdf5 0%,#ffffff 72%)' },
+    { label:'SALDO', value:fmtFinShort(saldo), suffix:'', subValue:fmtFinShort(fullYearBP), subLabel:'Budget Portfolio', badge:{
+      text:`${saldoOk ? '-' : '+'}${Math.abs(saldoDesvio).toFixed(1).replace('.', ',')}% Desvio`,
+      bg: saldoOk ? 'var(--green-l)' : 'var(--red-l)',
+      color: saldoOk ? 'var(--green)' : 'var(--red)'
+    }, ref:true, accent:'var(--amber)', cardBg:'linear-gradient(180deg,#fffbeb 0%,#ffffff 72%)' },
+  ].map(k => k.ref ? `
+    <div class="kpi-card fin-ref-card" style="--accent:${k.accent || '#1f5aa8'};background:${k.cardBg || 'var(--card-bg)'};">
+      <div class="fin-ref-title">${k.label}</div>
+      <div class="fin-ref-main">
+        <div class="fin-ref-value">${k.value}</div>
+        <div class="fin-ref-suffix">${k.suffix}</div>
+      </div>
+      <div class="fin-ref-sub">${k.subValue} <small>${k.subLabel}</small></div>
+      <span class="fin-ref-badge" style="background:${k.badge.bg};color:${k.badge.color};">${k.badge.text}</span>
+    </div>` : `
     <div class="kpi-card" style="--accent:${k.accent}">
       <div class="kpi-label">${k.label}</div>
       <div class="kpi-value" style="font-size:20px;">${k.value}</div>
@@ -1181,40 +2662,79 @@ function renderFinKPIs() {
     </div>`).join('');
 }
 
+function getAdaptiveMonthWindow(width, isPdf, mode = 'default') {
+  if (isPdf && mode === 'finance') {
+    const size = 10;
+    const start = Math.max(0, Math.min(TODAY_MONTH - 4, MONTHS.length - size));
+    return MONTHS.map((_, i) => i).slice(start, Math.min(MONTHS.length, start + size));
+  }
+  if (isPdf && mode === 'trend') {
+    const size = 10;
+    const start = Math.max(0, Math.min(TODAY_MONTH - Math.floor(size / 2), MONTHS.length - size));
+    return MONTHS.map((_, i) => i).slice(start, Math.min(MONTHS.length, start + size));
+  }
+  const minPxPerMonth = isPdf ? 92 : 105;
+  const size = Math.max(6, Math.min(12, Math.floor((Number(width) || 900) / minPxPerMonth)));
+  const selectedYear = String(MONTHS[TODAY_MONTH] || '').split('/').pop();
+  const yearIndexes = MONTHS.map((m, i) => String(m).split('/').pop() === selectedYear ? i : -1).filter(i => i >= 0);
+  const yearStart = yearIndexes.length ? yearIndexes[0] : 0;
+  const yearEnd = yearIndexes.length ? yearIndexes[yearIndexes.length - 1] : MONTHS.length - 1;
+  const start = Math.max(yearStart, Math.min(TODAY_MONTH - Math.floor(size / 2), yearEnd - size + 1));
+  return MONTHS.map((_, i) => i).slice(start, Math.min(MONTHS.length, start + size));
+}
+
 function renderSCurve() {
   const svg = document.getElementById('scurve-svg');
-  const W = 680, H = 280, PL = 64, PR = 16, PT = 20, PB = 36;
+  const box = svg.getBoundingClientRect();
+  const W = Math.round(box.width || 680);
+  const H = Math.round(box.height || 362);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const isPdf = document.body.classList.contains('pdf-export');
+  const PL = 36, PR = 18, PT = isPdf ? 4 : 20, PB = isPdf ? 18 : 40;
   const cW = W - PL - PR, cH = H - PT - PB;
-  const N = 12;
+  const indexes = getAdaptiveMonthWindow(W, isPdf, 'finance');
+  const N = indexes.length;
+  const source = consolidatedSeries || {};
+  const bp = source.bp || portMonthPlan;
+  const real = source.realizado || portMonthReal;
+  const forecast = source.forecast || portMonthFc;
+  const actualForecast = indexes.map(i => i <= TODAY_MONTH ? (Number(real[i]) || 0) : (Number(forecast[i]) || 0));
+  const bpWindow = indexes.map(i => Number(bp[i]) || 0);
+  const selectedLocal = indexes.indexOf(TODAY_MONTH);
+  const chartSub = document.getElementById('scurve-sub');
+  if (chartSub && indexes.length) {
+    chartSub.textContent = `Valores mensais em R$ MM - ${MONTHS[indexes[0]]} - ${MONTHS[indexes[indexes.length - 1]]}`;
+  }
 
-  const allVals = [...cumPlan, ...cumReal.filter(v=>v!==null), ...cumFc.filter(v=>v!==null), ...cumEAC].filter(Boolean);
-  const yMax = Math.max(...allVals) * 1.08;
+  const allVals = [...bpWindow, ...actualForecast]
+    .filter(v => Number.isFinite(v) && v > 0);
+  const yMax = Math.max(1, ...allVals) * 1.18;
 
-  const X = i => PL + cW * (i / (N-1));
+  const X = i => PL + cW * (N <= 1 ? 0 : i / (N-1));
   const Y = v => PT + cH * (1 - v / yMax);
+  const fmtChartMM = v => `R$ ${(v / 1e6).toFixed(2).replace('.', ',')} MM`;
 
   let out = '';
 
-  // Grid lines
   for (let g = 0; g <= 4; g++) {
     const y = PT + cH * (g/4);
-    const v = yMax * (1 - g/4);
     out += `<line x1="${PL}" y1="${y.toFixed(0)}" x2="${W-PR}" y2="${y.toFixed(0)}" stroke="#e8edf4" stroke-width="1"/>`;
-    out += `<text x="${PL-6}" y="${(y+4).toFixed(0)}" font-size="10" fill="#94a3b8" text-anchor="end" font-family="DM Sans,sans-serif">${fmtM(v)}</text>`;
   }
 
-  // X labels
-  MONTHS.forEach((m, i) => {
-    out += `<text x="${X(i).toFixed(0)}" y="${H-6}" font-size="10" fill="#94a3b8" text-anchor="middle" font-family="DM Sans,sans-serif">${m}</text>`;
+  indexes.forEach((monthIndex, i) => {
+    const fill = monthIndex === TODAY_MONTH ? '#111827' : '#64748b';
+    const weight = monthIndex === TODAY_MONTH ? '800' : '500';
+    out += `<text x="${X(i).toFixed(0)}" y="${H-6}" font-size="${isPdf ? 12 : 10}" fill="${fill}" font-weight="${weight}" text-anchor="middle" font-family="DM Sans,sans-serif">${MONTHS[monthIndex]}</text>`;
   });
 
-  // Today marker
-  const tx = X(TODAY_MONTH);
-  out += `<line x1="${tx.toFixed(0)}" y1="${PT}" x2="${tx.toFixed(0)}" y2="${PT+cH}" stroke="var(--red)" stroke-width="1.2" stroke-dasharray="4 3" opacity=".6"/>`;
+  if (selectedLocal >= 0) {
+    const tx = X(selectedLocal);
+    out += `<line x1="${tx.toFixed(0)}" y1="${PT}" x2="${tx.toFixed(0)}" y2="${PT+cH}" stroke="#111827" stroke-width="1.1" stroke-dasharray="4 3" opacity=".45"/>`;
+    out += `<text x="${tx.toFixed(0)}" y="${isPdf ? 9 : PT-8}" font-size="${isPdf ? 12 : 10}" fill="#111827" text-anchor="middle" font-family="DM Sans,sans-serif">${MONTHS[TODAY_MONTH]}</text>`;
+  }
 
-  // Paths
-  function pathOf(data, nullCheck) {
-    const pts = data.map((v, i) => nullCheck(v) ? null : {x:X(i),y:Y(v)}).filter(Boolean);
+  function pathOf(points) {
+    const pts = points.filter(Boolean);
     if (pts.length < 2) return '';
     let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
     for (let i=1;i<pts.length;i++){
@@ -1224,47 +2744,27 @@ function renderSCurve() {
     }
     return d;
   }
-
-  // EAC cumulative
-  out += `<path d="${pathOf(cumEAC,v=>!v)}" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="5 4"/>`;
-
-  // Plan
-  out += `<path d="${pathOf(cumPlan,v=>!v)}" fill="none" stroke="#2563eb" stroke-width="2.2"/>`;
-
-  // Real (past) + Forecast (future, dashed)
-  const realPts = cumReal.map((v, i) => v !== null ? {x:X(i),y:Y(v)} : null).filter(Boolean);
-  const fcPts = cumFc.map((v, i) => i > TODAY_MONTH && v !== null ? {x:X(i),y:Y(v)} : null).filter(Boolean);
-
-  if (realPts.length >= 2) {
-    let d = `M${realPts[0].x.toFixed(1)},${realPts[0].y.toFixed(1)}`;
-    for (let i=1;i<realPts.length;i++){
-      const p0=realPts[i-1],p1=realPts[i];
-      const mx=(p0.x+p1.x)/2;
-      d+=` C${mx.toFixed(1)},${p0.y.toFixed(1)} ${mx.toFixed(1)},${p1.y.toFixed(1)} ${p1.x.toFixed(1)},${p1.y.toFixed(1)}`;
-    }
-    out += `<path d="${d}" fill="none" stroke="#059669" stroke-width="2.4"/>`;
+  function drawSeries(values, color) {
+    const points = values.map((v, i) => ({ x: X(i), y: Y(v), value: v }));
+    const past = points.filter((_, i) => selectedLocal < 0 || i <= selectedLocal);
+    const future = points.filter((_, i) => selectedLocal >= 0 && i >= selectedLocal);
+    if (past.length >= 2) out += `<path d="${pathOf(past)}" fill="none" stroke="${color}" stroke-width="2.2"/>`;
+    if (future.length >= 2) out += `<path d="${pathOf(future)}" fill="none" stroke="${color}" stroke-width="2.2" stroke-dasharray="5 4"/>`;
+    points.forEach((p, i) => {
+      out += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.2" fill="white" stroke="${color}" stroke-width="1.8"/>`;
+      if (selectedLocal >= 0 && i <= selectedLocal && p.value > 0) {
+        const text = fmtChartMM(p.value);
+        const boxW = Math.max(58, text.length * (isPdf ? 7.2 : 6.2)), boxH = isPdf ? 18 : 16;
+        const offset = color === '#2563eb' ? (i % 2 ? 19 : 33) : (i % 2 ? 38 : 52);
+        const y = Math.max(2, p.y - offset);
+        out += `<rect x="${(p.x - boxW/2).toFixed(1)}" y="${y.toFixed(1)}" width="${boxW}" height="${boxH}" rx="3" fill="${color === '#2563eb' ? '#bfdbfe' : '#059669'}" stroke="${color}" stroke-width=".8"/>`;
+        out += `<text x="${p.x.toFixed(1)}" y="${(y + (isPdf ? 13 : 11)).toFixed(1)}" font-size="${isPdf ? 12.1 : 10.1}" font-weight="800" fill="${color === '#2563eb' ? '#0034c7' : '#fff'}" text-anchor="middle" font-family="DM Sans,sans-serif">${text}</text>`;
+      }
+    });
   }
 
-  if (realPts.length && fcPts.length) {
-    const junction = realPts[realPts.length-1];
-    const allFc = [junction, ...fcPts];
-    let d = `M${allFc[0].x.toFixed(1)},${allFc[0].y.toFixed(1)}`;
-    for (let i=1;i<allFc.length;i++){
-      const p0=allFc[i-1],p1=allFc[i];
-      const mx=(p0.x+p1.x)/2;
-      d+=` C${mx.toFixed(1)},${p0.y.toFixed(1)} ${mx.toFixed(1)},${p1.y.toFixed(1)} ${p1.x.toFixed(1)},${p1.y.toFixed(1)}`;
-    }
-    out += `<path d="${d}" fill="none" stroke="#059669" stroke-width="2.4" stroke-dasharray="6 4"/>`;
-  }
-
-  // Dots
-  cumPlan.forEach((v, i) => {
-    out += `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="3.2" fill="white" stroke="#2563eb" stroke-width="1.8"/>`;
-  });
-  cumReal.forEach((v, i) => {
-    if (v === null) return;
-    out += `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="3.6" fill="white" stroke="#059669" stroke-width="2"/>`;
-  });
+  drawSeries(actualForecast, '#059669');
+  drawSeries(bpWindow, '#2563eb');
 
   svg.innerHTML = out;
 }
@@ -1273,10 +2773,11 @@ function renderBarChart() {
   const svg = document.getElementById('bar-svg');
   const W = 680, H = 280, PL = 56, PR = 16, PT = 20, PB = 36;
   const cW = W - PL - PR, cH = H - PT - PB;
-  const N = 12;
+  const N = MONTHS.length;
 
-  const allVals = [...portMonthPlan, ...portMonthReal.filter(v=>v!==null), ...portMonthFc.filter(v=>v!==null)].filter(Boolean);
-  const yMax = Math.max(...allVals) * 1.18;
+  const allVals = [...portMonthPlan, ...portMonthReal.filter(v=>v!==null), ...portMonthFc.filter(v=>v!==null)]
+    .filter(v => Number.isFinite(v) && v > 0);
+  const yMax = Math.max(1, ...allVals) * 1.18;
 
   const barW = (cW / N) * 0.36;
   const groupW = cW / N;
@@ -1310,7 +2811,7 @@ function renderBarChart() {
   // EAC line
   const eacPts = portMonthPlan.map((v, i) => ({
     x: X(i, barW) + barW/2, // center of group
-    y: Y(Math.round(v * (totalEAC/totalBudget)))
+    y: Y(Math.round(v * ((totalEAC || 0) / Math.max(1, totalBudget || 0))))
   }));
   let lineD = `M${eacPts[0].x.toFixed(1)},${eacPts[0].y.toFixed(1)}`;
   eacPts.slice(1).forEach(p => { lineD += ` L${p.x.toFixed(1)},${p.y.toFixed(1)}`; });
@@ -1331,36 +2832,369 @@ function renderBarChart() {
 
 function renderDevBars() {
   const el = document.getElementById('dev-bars');
-  const sorted = [...projData].sort((a, b) => {
-    const da = (a.eac - a.budget)/a.budget*100;
-    const db = (b.eac - b.budget)/b.budget*100;
-    return db - da;
-  });
-  const maxDev = Math.max(...sorted.map(p => Math.abs((p.eac-p.budget)/p.budget*100))) || 10;
+  const rows = projData.map(p => {
+    const consumed = sumArr((p.monthRealSource || p.monthReal || []).slice(0, TODAY_MONTH + 1));
+    const pct = safePct(consumed, p.budget || 0);
+    const monthReal = Number((p.monthRealSource || p.monthReal || [])[TODAY_MONTH]) || 0;
+    const monthBP = Number((p.monthPlan || [])[TODAY_MONTH]) || 0;
+    return { p, consumed, pct, monthAlert: monthReal > monthBP && monthBP > 0 };
+  }).sort((a, b) => b.pct - a.pct);
 
-  el.innerHTML = sorted.map(p => {
-    const dev = (p.eac - p.budget) / p.budget * 100;
-    const width = Math.abs(dev) / maxDev * 100;
-    const color = dev > 5 ? 'var(--red)' : dev > 1 ? 'var(--amber)' : 'var(--green)';
+  el.innerHTML = rows.map(({ p, pct, monthAlert }) => {
+    const cappedPct = Math.min(100, Math.max(0, pct));
+    const color = pct > 100 ? 'var(--red)' : monthAlert ? 'var(--amber)' : `hsl(154 72% ${72 - cappedPct * 0.38}%)`;
+    const label = pct > 100 ? `+${(pct - 100).toFixed(1)}%` : `${pct.toFixed(1)}%`;
     return `
       <div class="dev-row">
         <div class="dev-row-name" title="${p.nome}">${p.nome}</div>
         <div class="dev-bar-track">
-          <div class="dev-bar-fill" style="width:${width}%;background:${color};"></div>
+          <div class="dev-bar-fill" style="width:${cappedPct}%;background:${color};"></div>
         </div>
         <div class="dev-pct" style="color:${color};">
-          ${dev >= 0 ? '+' : ''}${dev.toFixed(1)}%
+          ${label}
         </div>
       </div>`;
   }).join('');
 }
 
-// ════════════════════════════════════════════
+function renderAccumulatedBars() {
+  const el = document.getElementById('accum-bars');
+  if (!el) return;
+  const rows = projData.map(p => {
+    const pv = sumArr((p.monthPlan || []).slice(0, TODAY_MONTH + 1));
+    const ac = sumArr((p.monthRealSource || p.monthReal || []).slice(0, TODAY_MONTH + 1));
+    const pct = safePct(ac, pv || 0);
+    return { p, pv, ac, pct, over: ac > pv && pv > 0 };
+  }).sort((a, b) => Number(b.over) - Number(a.over) || b.pct - a.pct);
+  const yMax = Math.max(100, Math.ceil(Math.max(...rows.map(r => r.pct).filter(v => Number.isFinite(v)), 0) / 25) * 25);
+  const ticks = [0, 25, 50, 75, 100].filter(v => v <= yMax);
+  if (!ticks.includes(yMax)) ticks.push(yMax);
+
+  el.innerHTML = rows.map(({ p, pv, ac, pct, over }) => {
+    const planH = Math.max(2, (100 / yMax) * 130);
+    const realH = Math.max(ac > 0 ? 2 : 0, (Math.min(pct, yMax) / yMax) * 130);
+    const color = over ? getRagInfo(p.rag).color : 'var(--green)';
+    const label = over ? `+${(pct - 100).toFixed(1)}%` : `${pct.toFixed(1)}%`;
+    return `
+      <div class="accum-col" title="${p.nome}">
+        <div class="accum-pct" style="color:${color};">${label}</div>
+        <div class="accum-bars">
+          <div class="accum-plan" style="height:${planH.toFixed(1)}px;"></div>
+          <div class="accum-real" style="height:${realH.toFixed(1)}px;background:${color};"></div>
+        </div>
+        <div class="accum-name">${p.nome}</div>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="accum-y-axis">
+      ${ticks.map(t => `<div class="accum-y-label" style="bottom:${(t / yMax * 130).toFixed(1)}px;">${t}%</div>`).join('')}
+    </div>
+    <div class="accum-plot">
+      ${ticks.map(t => `<div class="accum-grid-line" style="bottom:${(t / yMax * 130 + 22).toFixed(1)}px;"></div>`).join('')}
+      ${el.innerHTML}
+    </div>`;
+}
+
+function renderAreaTradeoff() {
+  const el = document.getElementById('area-tradeoff');
+  if (!el) return;
+  const areas = new Map();
+  projData.forEach(p => {
+    const area = p.areaEstrategica || p.area || 'Sem área';
+    const item = areas.get(area) || { area, budget: 0, realized: 0 };
+    item.budget += p.budget || 0;
+    item.realized += sumArr((p.monthRealSource || p.monthReal || []).slice(0, TODAY_MONTH + 1));
+    areas.set(area, item);
+  });
+
+  el.innerHTML = [...areas.values()].sort((a, b) => b.budget - a.budget).map(item => {
+    const pct = safePct(item.realized, item.budget || 0);
+    const saldo = item.budget - item.realized;
+    const areaKey = normalizeText(item.area).toLowerCase();
+    const isPpd = areaKey === 'ppd';
+    const dark = saldo < 0 ? 'var(--red)' : isPpd ? '#2563eb' : '#059669';
+    const light = saldo < 0 ? '#ef4444' : isPpd ? '#dbeafe' : '#d1fae5';
+    const lightText = saldo < 0 ? '#7f1d1d' : isPpd ? '#1e3a8a' : '#064e3b';
+    const realizedPct = Math.min(100, Math.max(0, pct));
+    const balancePct = Math.max(0, 100 - realizedPct);
+    const realizedOutside = realizedPct < 22 && item.realized > 0;
+    const balanceOutside = balancePct < 22 && saldo > 0;
+    const realizedLabel = fmtMM(item.realized);
+    const balanceLabel = fmtMM(Math.max(0, saldo));
+    const realizedCalloutStyle = `left:calc(${realizedPct.toFixed(1)}% + 8px);color:${dark};`;
+    const balanceCalloutStyle = `right:calc(${balancePct.toFixed(1)}% + 8px);color:${lightText};`;
+    return `
+      <div>
+        <div class="area-row">
+          <div class="area-name">${item.area}</div>
+          <div class="area-track">
+            <div class="area-fill" style="width:${realizedPct.toFixed(1)}%;background:${dark};">${realizedOutside ? '' : realizedLabel}</div>
+            <div class="area-balance" style="width:${balancePct.toFixed(1)}%;background:${light};color:${lightText};">${balanceOutside ? '' : balanceLabel}</div>
+            ${realizedOutside ? `<span class="area-callout right" style="${realizedCalloutStyle}">${realizedLabel}</span>` : ''}
+            ${balanceOutside ? `<span class="area-callout left" style="${balanceCalloutStyle}">${balanceLabel}</span>` : ''}
+          </div>
+          <div class="area-budget">${fmtMM(item.budget)}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderTradeoffPies() {
+  const configs = [
+    { key: 'cadastro', svgId: 'tradeoff-cadastro-pie', dark: '#059669', light: '#d1fae5', label: 'Cadastro' },
+    { key: 'ppd', svgId: 'tradeoff-ppd-pie', dark: '#2563eb', light: '#dbeafe', label: 'PPD' }
+  ];
+
+  configs.forEach(cfg => {
+    const svg = document.getElementById(cfg.svgId);
+    if (!svg) return;
+    const items = projData.filter(p => normalizeText(p.areaEstrategica || p.area).toLowerCase() === cfg.key);
+    const budget = items.reduce((s, p) => s + (p.budget || 0), 0);
+    const realized = items.reduce((s, p) => s + sumArr((p.monthRealSource || p.monthReal || []).slice(0, TODAY_MONTH + 1)), 0);
+    const saldo = Math.max(0, budget - realized);
+    const total = Math.max(1, realized + saldo);
+    const data = [
+      { label: 'Realizado', value: realized, color: cfg.dark, text: '#fff' },
+      { label: 'Saldo', value: saldo, color: cfg.light, text: cfg.dark }
+    ].filter(item => item.value > 0);
+    const cx = 92, cy = 76, radius = 54, innerRadius = 30;
+    const polar = (r, angle) => ({ x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r });
+    const arcPath = (rOuter, rInner, start, end) => {
+      const a = polar(rOuter, start), b = polar(rOuter, end), c = polar(rInner, end), d = polar(rInner, start);
+      const largeArc = end - start > Math.PI ? 1 : 0;
+      return `M ${a.x.toFixed(2)} ${a.y.toFixed(2)} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${b.x.toFixed(2)} ${b.y.toFixed(2)} L ${c.x.toFixed(2)} ${c.y.toFixed(2)} A ${rInner} ${rInner} 0 ${largeArc} 0 ${d.x.toFixed(2)} ${d.y.toFixed(2)} Z`;
+    };
+    let start = -Math.PI / 2;
+    let out = '';
+    data.forEach(item => {
+      const slice = (item.value / total) * Math.PI * 2;
+      out += `<path d="${arcPath(radius, innerRadius, start, start + slice)}" fill="${item.color}"></path>`;
+      start += slice;
+    });
+    out += `<circle cx="${cx}" cy="${cy}" r="${innerRadius - 2}" fill="white"></circle>`;
+    out += `<text x="${cx}" y="${cy - 3}" text-anchor="middle" font-size="13" font-weight="800" fill="#0f172a" font-family="DM Sans,sans-serif">${((realized / Math.max(1, budget)) * 100).toFixed(1).replace('.', ',')}%</text>`;
+    out += `<text x="${cx}" y="${cy + 13}" text-anchor="middle" font-size="8" fill="#64748b" font-family="DM Sans,sans-serif">consumo</text>`;
+    out += data.map((item, i) => `
+      <g transform="translate(160 ${48 + i * 38})">
+        <rect x="0" y="-10" width="10" height="10" rx="2" fill="${item.color}"></rect>
+        <text x="16" y="-2" font-size="9" font-weight="800" fill="#0f172a" font-family="DM Sans,sans-serif">${item.label}</text>
+        <text x="16" y="12" font-size="9" font-weight="800" fill="${item.label === 'Realizado' ? cfg.dark : '#64748b'}" font-family="DM Sans,sans-serif">${fmtMM(item.value)}</text>
+      </g>`).join('');
+    out += `<text x="92" y="154" text-anchor="middle" font-size="9" font-weight="800" fill="${cfg.dark}" font-family="DM Sans,sans-serif">Budget ${fmtMM(budget)}</text>`;
+    svg.innerHTML = out;
+  });
+}
+
+function renderCpiChart() {
+  const svg = document.getElementById('cpi-svg');
+  if (!svg) return;
+  const box = svg.getBoundingClientRect();
+  const W = Math.round(box.width || 980);
+  const H = Math.round(box.height || 208);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const isPdf = document.body.classList.contains('pdf-export');
+  const rows = projData.map(p => ({
+    nome: p.nome,
+    cpi: Number(getProjectEvolution(p.id).cpi)
+  })).filter(p => Number.isFinite(p.cpi) && p.cpi > 0);
+
+  if (!rows.length) {
+    svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="12" fill="#64748b" font-family="DM Sans,sans-serif">Sem CPI registrado no mês filtrado</text>`;
+    return;
+  }
+
+  const PL = 28, PR = 8, PT = isPdf ? 14 : 16, PB = isPdf ? 30 : 34;
+  const cW = W - PL - PR, cH = H - PT - PB;
+  const avg = rows.reduce((s, p) => s + p.cpi, 0) / rows.length;
+  const yMax = Math.max(1.2, Math.ceil(Math.max(...rows.map(p => p.cpi), avg) * 4) / 4);
+  const groupW = cW / rows.length;
+  const barW = Math.min(44, groupW * 0.72);
+  const X = i => PL + groupW * i + groupW / 2;
+  const Y = v => PT + cH * (1 - v / yMax);
+  const BH = v => cH * (v / yMax);
+
+  let out = '';
+  for (let g = 0; g <= 4; g++) {
+    const value = yMax * (g / 4);
+    const y = Y(value);
+    out += `<line x1="${PL}" y1="${y.toFixed(1)}" x2="${W-PR}" y2="${y.toFixed(1)}" stroke="#e8edf4" stroke-width="1"/>`;
+  }
+
+  rows.forEach((p, i) => {
+    const x = X(i) - barW / 2;
+    const y = Y(p.cpi);
+    const color = p.cpi >= avg ? '#059669' : '#d97706';
+    out += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${BH(p.cpi).toFixed(1)}" rx="4" fill="${color}"/>`;
+    out += `<text x="${X(i).toFixed(1)}" y="${(y-6).toFixed(1)}" font-size="${isPdf ? 12 : 10}" font-weight="800" fill="${color}" text-anchor="middle" font-family="Verdana,Arial,sans-serif">${p.cpi.toFixed(2)}</text>`;
+    out += `<text x="${X(i).toFixed(1)}" y="${H-12}" font-size="${isPdf ? 11 : 9}" font-weight="700" fill="#0f172a" text-anchor="middle" font-family="DM Sans,sans-serif">${p.nome.length > 12 ? p.nome.slice(0, 11) + '…' : p.nome}</text>`;
+  });
+
+  const avgY = Y(avg);
+  out += `<line x1="${PL}" y1="${avgY.toFixed(1)}" x2="${W-PR}" y2="${avgY.toFixed(1)}" stroke="#2563eb" stroke-width="2" stroke-dasharray="6 4"/>`;
+  const avgBoxX = Math.min(W - PR - 104, Math.max(PL + 6, X(rows.length - 1) - 52));
+  const avgBoxY = 0;
+  out += `<rect x="${avgBoxX.toFixed(1)}" y="${avgBoxY.toFixed(1)}" width="104" height="18" rx="4" fill="#dbeafe" stroke="#2563eb"/>`;
+  out += `<text x="${(avgBoxX + 52).toFixed(1)}" y="${(avgBoxY + 13).toFixed(1)}" font-size="${isPdf ? 12 : 10}" font-weight="800" fill="#1d4ed8" text-anchor="middle" font-family="DM Sans,sans-serif">Média ${avg.toFixed(2)}</text>`;
+  svg.innerHTML = out;
+}
+
+function getAverageMetricByMonth(metric, monthIndex) {
+  const values = projData.map(p => {
+    const byMonth = evolutionRagMap.get(normalizeCode(p.id));
+    const row = byMonth ? byMonth.get(monthIndex) : null;
+    return row ? Number(row[metric]) : NaN;
+  }).filter(v => Number.isFinite(v) && v > 0);
+  return values.length ? values.reduce((s, v) => s + v, 0) / values.length : null;
+}
+
+function renderSpiProjectChart() {
+  const svg = document.getElementById('spi-svg');
+  if (!svg) return;
+  const box = svg.getBoundingClientRect();
+  const W = Math.round(box.width || 680);
+  const H = Math.round(box.height || 160);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  const rows = projData.map(p => ({
+    nome: p.nome,
+    spi: Number((getProjectEvolution(p.id) || {}).spi)
+  })).filter(p => Number.isFinite(p.spi) && p.spi > 0);
+
+  if (!rows.length) {
+    svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="12" fill="#64748b" font-family="DM Sans,sans-serif">Sem SPI registrado no mês filtrado</text>`;
+    return;
+  }
+
+  const PL = 34, PR = 10, PT = 18, PB = 34;
+  const cW = W - PL - PR, cH = H - PT - PB;
+  const avg = rows.reduce((s, p) => s + p.spi, 0) / rows.length;
+  const yMax = Math.max(1.2, Math.ceil(Math.max(...rows.map(p => p.spi), avg) * 4) / 4);
+  const groupW = cW / rows.length;
+  const barW = Math.min(36, groupW * 0.62);
+  const X = i => PL + groupW * i + groupW / 2;
+  const Y = v => PT + cH * (1 - v / yMax);
+  const BH = v => cH * (v / yMax);
+
+  let out = '';
+  for (let g = 0; g <= 4; g++) {
+    const value = yMax * (g / 4);
+    const y = Y(value);
+    out += `<line x1="${PL}" y1="${y.toFixed(1)}" x2="${W-PR}" y2="${y.toFixed(1)}" stroke="#e8edf4" stroke-width="1"/>`;
+  }
+
+  rows.forEach((p, i) => {
+    const x = X(i) - barW / 2;
+    const y = Y(p.spi);
+    const color = p.spi >= avg ? '#059669' : '#d97706';
+    out += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${BH(p.spi).toFixed(1)}" rx="4" fill="${color}"/>`;
+    out += `<text x="${X(i).toFixed(1)}" y="${(y-6).toFixed(1)}" font-size="8" font-weight="800" fill="${color}" text-anchor="middle" font-family="Verdana,Arial,sans-serif">${p.spi.toFixed(2)}</text>`;
+    out += `<text x="${X(i).toFixed(1)}" y="${H-18}" font-size="8" font-weight="700" fill="#0f172a" text-anchor="middle" font-family="DM Sans,sans-serif">${p.nome.length > 14 ? p.nome.slice(0, 13) + '…' : p.nome}</text>`;
+  });
+
+  const avgY = Y(avg);
+  out += `<line x1="${PL}" y1="${avgY.toFixed(1)}" x2="${W-PR}" y2="${avgY.toFixed(1)}" stroke="#2563eb" stroke-width="2" stroke-dasharray="6 4"/>`;
+  const avgBoxX = Math.min(W - PR - 104, Math.max(PL + 6, X(rows.length - 1) - 52));
+  const avgBoxY = 0;
+  out += `<rect x="${avgBoxX.toFixed(1)}" y="${avgBoxY.toFixed(1)}" width="104" height="18" rx="4" fill="#dbeafe" stroke="#2563eb"/>`;
+  out += `<text x="${(avgBoxX + 52).toFixed(1)}" y="${(avgBoxY + 13).toFixed(1)}" font-size="9" font-weight="800" fill="#1d4ed8" text-anchor="middle" font-family="DM Sans,sans-serif">Média ${avg.toFixed(2)}</text>`;
+  svg.innerHTML = out;
+}
+
+function renderMetricTrendChart(svgId, metric, emptyText) {
+  const svg = document.getElementById(svgId);
+  if (!svg) return;
+  const box = svg.getBoundingClientRect();
+  const W = Math.round(box.width || 520);
+  const H = Math.round(box.height || 208);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const isPdf = document.body.classList.contains('pdf-export');
+
+  const indexes = getAdaptiveMonthWindow(W, isPdf, 'trend');
+  const actual = indexes
+    .filter(i => i <= TODAY_MONTH)
+    .map(i => ({ monthIndex: i, month: MONTHS[i], value: getAverageMetricByMonth(metric, i), projected: false }))
+    .filter(r => Number.isFinite(r.value));
+
+  if (!actual.length) {
+    svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="12" fill="#64748b" font-family="DM Sans,sans-serif">${emptyText}</text>`;
+    return;
+  }
+
+  const n = actual.length;
+  const sx = actual.reduce((s, r) => s + r.monthIndex, 0);
+  const sy = actual.reduce((s, r) => s + r.value, 0);
+  const sxy = actual.reduce((s, r) => s + r.monthIndex * r.value, 0);
+  const sx2 = actual.reduce((s, r) => s + r.monthIndex * r.monthIndex, 0);
+  const denom = n * sx2 - sx * sx;
+  const slope = n > 1 && denom ? (n * sxy - sx * sy) / denom : 0;
+  const intercept = (sy - slope * sx) / n;
+  const project = monthIndex => Math.max(0, intercept + slope * monthIndex);
+  const series = indexes.map(i => {
+    const row = actual.find(r => r.monthIndex === i);
+    return row || { monthIndex: i, month: MONTHS[i], value: project(i), projected: i > TODAY_MONTH };
+  });
+
+  const PL = 28, PR = 10, PT = isPdf ? 14 : 16, PB = isPdf ? 30 : 30;
+  const cW = W - PL - PR, cH = H - PT - PB;
+  const selectedLocal = indexes.indexOf(TODAY_MONTH);
+  const minValue = Math.min(...series.map(r => r.value));
+  const maxValue = Math.max(...series.map(r => r.value));
+  const pad = Math.max(0.05, (maxValue - minValue) * 0.35);
+  const yMin = Math.max(0, minValue - pad);
+  const yMax = Math.max(1.05, maxValue + pad);
+  const X = i => PL + cW * (series.length <= 1 ? 0.5 : i / (series.length - 1));
+  const Y = v => PT + cH * (1 - (v - yMin) / Math.max(0.01, yMax - yMin));
+
+  let out = '';
+  for (let g = 0; g <= 4; g++) {
+    const value = yMin + (yMax - yMin) * (g / 4);
+    const y = Y(value);
+    out += `<line x1="${PL}" y1="${y.toFixed(1)}" x2="${W-PR}" y2="${y.toFixed(1)}" stroke="#e8edf4" stroke-width="1"/>`;
+  }
+
+  if (selectedLocal >= 0) {
+    const tx = X(selectedLocal);
+    out += `<line x1="${tx.toFixed(0)}" y1="${PT}" x2="${tx.toFixed(0)}" y2="${PT+cH}" stroke="#111827" stroke-width="1.1" stroke-dasharray="4 3" opacity=".45"/>`;
+  }
+
+  const points = series.map((r, i) => ({ x: X(i), y: Y(r.value), ...r }));
+  const actualPoints = points.filter(p => !p.projected);
+  const futurePoints = points.filter(p => p.projected || p.monthIndex === TODAY_MONTH);
+  if (actualPoints.length > 1) out += `<path d="M${actualPoints.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')}" fill="none" stroke="#2563eb" stroke-width="2.2"/>`;
+  if (futurePoints.length > 1) out += `<path d="M${futurePoints.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')}" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-dasharray="5 4"/>`;
+
+  points.forEach((p, i) => {
+    if (p.projected && i !== points.length - 1) return;
+    const boxW = 44, boxH = 18;
+    const labelY = Math.max(2, p.y - 28);
+    out += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="white" stroke="#2563eb" stroke-width="2"/>`;
+    out += `<rect x="${(p.x - boxW/2).toFixed(1)}" y="${labelY.toFixed(1)}" width="${boxW}" height="${boxH}" rx="3" fill="#dbeafe" stroke="#2563eb" stroke-width=".8"/>`;
+    out += `<text x="${p.x.toFixed(1)}" y="${(labelY + 13).toFixed(1)}" font-size="${isPdf ? 12 : 10}" font-weight="800" fill="#1d4ed8" text-anchor="middle" font-family="Verdana,Arial,sans-serif">${p.value.toFixed(2)}</text>`;
+  });
+  points.forEach(p => {
+    out += `<text x="${p.x.toFixed(1)}" y="${H-8}" font-size="${isPdf ? 11 : 9}" font-weight="700" fill="#0f172a" text-anchor="middle" font-family="DM Sans,sans-serif">${p.month}</text>`;
+  });
+
+  svg.innerHTML = out;
+}
+
+function renderCpiTrendChart() {
+  renderMetricTrendChart('cpi-trend-svg', 'cpi', 'Sem CPI médio registrado');
+}
+
+function renderSpiTrendChart() {
+  renderMetricTrendChart('spi-trend-svg', 'spi', 'Sem SPI médio registrado');
+}
+
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // INIT
-// ════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function goTab(n) {
   document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i===n));
   document.querySelectorAll('.page').forEach((p, i) => p.classList.toggle('active', i===n));
+  if (n === 1) requestAnimationFrame(() => { renderSchedulePies(); renderSpiProjectChart(); renderSpiTrendChart(); });
+  if (n === 2) requestAnimationFrame(() => { renderSCurve(); renderCpiChart(); renderCpiTrendChart(); });
   // Update print header page label
   const labels = ['Visão Geral', 'Cronograma', 'Financeiro'];
   const ph = document.getElementById('print-page-label');
@@ -1368,47 +3202,56 @@ function goTab(n) {
 }
 
 function exportPDF() {
-  // Show the print header for current page
   const activeIdx = [...document.querySelectorAll('.page')].findIndex(p => p.classList.contains('active'));
   const labels = ['Visão Geral — Portfolio', 'Cronograma do Portfolio', 'Financeiro do Portfolio'];
   const ph = document.getElementById('print-page-label');
   if (ph) ph.textContent = labels[activeIdx] + '  ·  Página ' + (activeIdx+1) + ' de 3';
-  document.getElementById('print-header').style.display = 'block';
-  window.print();
-  setTimeout(() => { document.getElementById('print-header').style.display = 'none'; }, 500);
+  const printHeader = document.getElementById('print-header');
+  if (printHeader) printHeader.style.display = 'none';
+  document.body.classList.add('pdf-export');
+  requestAnimationFrame(() => {
+    renderSCurve();
+    renderCpiChart();
+    renderCpiTrendChart();
+    renderSchedulePies();
+    renderSpiProjectChart();
+    renderSpiTrendChart();
+    setTimeout(() => window.print(), 50);
+  });
 }
 
+window.addEventListener('afterprint', () => {
+  const printHeader = document.getElementById('print-header');
+  if (printHeader) printHeader.style.display = 'none';
+  document.body.classList.remove('pdf-export');
+  requestAnimationFrame(() => { renderSCurve(); renderCpiChart(); renderCpiTrendChart(); renderSchedulePies(); renderSpiProjectChart(); renderSpiTrendChart(); });
+});
+
 function init() {
-  const now = new Date();
-
-  // Meta fields
-  const monthName = now.toLocaleDateString('pt-BR', {month:'long', year:'numeric'});
-  const monthShort = now.toLocaleDateString('pt-BR', {month:'long'}).charAt(0).toUpperCase() +
-    now.toLocaleDateString('pt-BR', {month:'long'}).slice(1);
-  document.getElementById('meta-corte').textContent =
-    now.toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
-  document.getElementById('meta-budget').textContent = 'R$ ' + (totalBudget/1e6).toFixed(2).replace('.',',') + ' M';
-  document.getElementById('meta-eac').textContent = 'R$ ' + (totalEAC/1e6).toFixed(2).replace('.',',') + ' M';
-  document.getElementById('meta-month').textContent = monthShort + ' ' + now.getFullYear();
-  document.getElementById('meta-gestor').textContent = 'Escritório de Projetos';
-
-  // Print header fields
-  const pd = document.getElementById('print-date');
-  const pb = document.getElementById('print-budget');
-  const pe = document.getElementById('print-eac');
-  if (pd) pd.textContent = 'Data de corte: ' + now.toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
-  if (pb) pb.textContent = 'R$ ' + (totalBudget/1e6).toFixed(2).replace('.',',') + ' M';
-  if (pe) pe.textContent = 'R$ ' + (totalEAC/1e6).toFixed(2).replace('.',',') + ' M';
-
-  renderKPIs();
-  renderHealthSummary();
-  renderProjTable();
-  renderCronKPIs();
-  renderGantt();
-  renderFinKPIs();
-  renderSCurve();
-  renderBarChart();
-  renderDevBars();
+  const input = document.getElementById('file-upload');
+  if (!input) return;
+  input.addEventListener('change', async (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    if (!window.XLSX) {
+      setUploadStatus('Biblioteca XLSX indisponível.', true);
+      return;
+    }
+    try {
+      setUploadStatus('Lendo ' + file.name + '...');
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      projData = buildProjectsFromWorkbook(workbook);
+      refreshDashboard();
+      setUploadStatus(file.name + ' carregado');
+      hideUploadOverlay();
+    } catch (error) {
+      console.error(error);
+      setUploadStatus('Falha ao ler planilha: ' + error.message, true);
+    } finally {
+      input.value = '';
+    }
+  });
 }
 
 init();
