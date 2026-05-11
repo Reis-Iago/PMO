@@ -3015,9 +3015,13 @@ function renderGantt() {
       const parsedDate = ms.date || parseDateValue(ms.nome);
       const pos = milestonePositions[idx];
       if (pos == null) return '';
-      const closeCount = milestonePositions.slice(0, idx).filter(prev => Math.abs(prev - pos) < 4).length;
-      const dateTop = closeCount % 2 === 0 ? 'calc(50% - 20px)' : 'calc(50% - 30px)';
-      const labelTop = closeCount % 2 === 0 ? 'calc(50% + 14px)' : 'calc(50% + 24px)';
+      const nearestDistance = Math.min(...milestonePositions
+        .filter((other, otherIdx) => otherIdx !== idx && other != null)
+        .map(other => Math.abs(other - pos)), 999);
+      const isClose = nearestDistance < 4;
+      const isVeryClose = nearestDistance < 2.2;
+      const dateTop = 'calc(50% - 22px)';
+      const labelTop = 'calc(50% + 14px)';
       const safePos = Math.max(1.2, Math.min(98.8, pos));
       const textAlign = safePos < 4 ? 'left' : safePos > 96 ? 'right' : 'center';
       const textTransform = safePos < 4 ? 'translateX(0)' : safePos > 96 ? 'translateX(-100%)' : 'translateX(-50%)';
@@ -3025,17 +3029,21 @@ function renderGantt() {
       const markerColor = done ? 'var(--blue)' : healthColor;
       const markerFill = done ? markerColor : '#fff';
       const milestoneLabel = (ms.label || ms.marco || 'Marco');
+      const dateText = parsedDate.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
+      const labelLimit = isClose ? 8 : 24;
+      const labelText = String(milestoneLabel).length > labelLimit ? String(milestoneLabel).substring(0,labelLimit)+'…' : milestoneLabel;
       return `
         <div class="gantt-milestone"
              style="left:${safePos}%;background:${markerFill};border-color:${markerColor};"
              title="${ms.nome}">
         </div>
         <div class="gantt-milestone-date" style="left:${safePos}%;transform:${textTransform};top:${dateTop};text-align:${textAlign};">
-          ${formatMilestoneValue(parsedDate)}
+          ${dateText}
         </div>
+        ${isVeryClose ? '' : `
         <div class="gantt-milestone-label" style="left:${safePos}%;transform:${textTransform};top:${labelTop};text-align:${textAlign};">
-          ${String(milestoneLabel).length > 14 ? String(milestoneLabel).substring(0,14)+'…' : milestoneLabel}
-        </div>`;
+          ${labelText}
+        </div>`}`;
     }).join('');
 
     html += `
