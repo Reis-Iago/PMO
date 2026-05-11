@@ -444,7 +444,6 @@ body {
 .budget-share-card #budget-share-svg { display:block; width:100%; height:230px; }
 .budget-consumption-area-card { padding:14px 18px; flex:0 0 auto; display:flex; flex-direction:column; min-height:0; height:342px; }
 .budget-consumption-area-card #budget-consumption-area-svg { display:block; width:100%; flex:1 1 auto; height:270px; min-height:0; }
-
 .proj-id { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-400); }
 .proj-name { font-size: 9.8px; font-weight: 600; color: var(--ink); line-height: 1.18; }
 .proj-area { font-size: 11px; color: var(--ink-400); margin-top: 1px; }
@@ -1541,7 +1540,6 @@ body {
       </div>
     </div>
   </div>
-
 </div>
 
 <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1853,6 +1851,11 @@ function normalizeKey(value) {
   return normalizeText(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 }
 
+function shouldDisplayProject(value) {
+  const key = normalizeKey(value);
+  return key !== 'nao' && key !== 'n';
+}
+
 function findSheet(workbook, names) {
   const wanted = names.map(normalizeKey);
   const sheetName = workbook.SheetNames.find(name => wanted.includes(normalizeKey(name)));
@@ -2162,8 +2165,10 @@ function buildProjectsFromWorkbook(workbook) {
   const pmoHeaders = pmoRows[0] || [];
   const idxStatusAcompanhamento = findColumn(pmoHeaders, key => key.includes('status') && key.includes('acompanhamento'));
   const idxStatusFalha = findColumn(pmoHeaders, key => key.includes('status') && key.includes('falha'));
-  portfolioBudget = pmoRows.slice(1).reduce((max, row) => Math.max(max, parseNumber(row[22])), 0);
-  const projects = pmoRows.slice(1).map(row => {
+  const idxExibir = findColumn(pmoHeaders, key => key === 'exibir');
+  const visibleRows = pmoRows.slice(1).filter(row => idxExibir < 0 || shouldDisplayProject(row[idxExibir]));
+  portfolioBudget = visibleRows.reduce((max, row) => Math.max(max, parseNumber(row[22])), 0);
+  const projects = visibleRows.map(row => {
     const id = normalizeCode(row[1]);
     if (!id) return null;
     const budget = parseNumber(row[24]);
@@ -2302,8 +2307,20 @@ function getRagInfo(value) {
   return { label: value || '-', color: '#64748b', bg: '#e2e8f0', key: 'sem' };
 }
 
+function getSelectedCutoffDate() {
+  const today = new Date();
+  const raw = String(MONTHS[TODAY_MONTH] || MONTHS[0] || '');
+  const [monthRaw, yearRaw] = raw.split('/');
+  const monthIndex = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'].indexOf(normalizeKey(monthRaw).slice(0,3));
+  const year = Number(yearRaw) < 100 ? 2000 + Number(yearRaw) : Number(yearRaw);
+  if (monthIndex < 0 || !Number.isFinite(year)) return today;
+  if (today.getFullYear() === year && today.getMonth() === monthIndex) return today;
+  return new Date(year, monthIndex + 1, 0);
+}
+
 function renderMeta() {
   const now = new Date();
+  const cutoff = getSelectedCutoffDate();
   const monthShort = formatMonthLabel(MONTHS[TODAY_MONTH] || MONTHS[0]);
   const metaCorte = document.getElementById('meta-corte');
   const metaPeriod = document.getElementById('meta-period');
@@ -2312,17 +2329,17 @@ function renderMeta() {
   const metaTotal = document.getElementById('meta-total-projects');
   const metaBudget = document.getElementById('meta-budget');
   const metaEac = document.getElementById('meta-eac');
-  if (metaCorte) metaCorte.textContent = now.toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
+  if (metaCorte) metaCorte.textContent = cutoff.toLocaleDateString('pt-BR', {month:'long', year:'numeric'});
   if (metaBudget) metaBudget.textContent = 'R$ ' + (totalBudget/1e6).toFixed(2).replace('.',',') + ' M';
   if (metaEac) metaEac.textContent = 'R$ ' + (totalEAC/1e6).toFixed(2).replace('.',',') + ' M';
-  if (metaMonth) metaMonth.textContent = monthShort + ' ' + now.getFullYear();
+  if (metaMonth) metaMonth.textContent = monthShort;
   if (metaPeriod) metaPeriod.textContent = `${formatMonthLabel(MONTHS[0])} – ${formatMonthLabel(MONTHS[MONTHS.length - 1])}`;
   if (metaGestor) metaGestor.textContent = 'Escritório de Projetos';
   if (metaTotal) metaTotal.textContent = projData.length + ' projetos';
   const pd = document.getElementById('print-date');
   const pb = document.getElementById('print-budget');
   const pe = document.getElementById('print-eac');
-  if (pd) pd.textContent = 'Data de corte: ' + now.toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
+  if (pd) pd.textContent = 'Data de corte: ' + cutoff.toLocaleDateString('pt-BR', {month:'long', year:'numeric'});
   if (pb) pb.textContent = 'R$ ' + (totalBudget/1e6).toFixed(2).replace('.',',') + ' M';
   if (pe) pe.textContent = 'R$ ' + (totalEAC/1e6).toFixed(2).replace('.',',') + ' M';
 }
@@ -2813,36 +2830,47 @@ function renderBudgetConsumptionAreaChart() {
     .map(p => ({
       nome: p.nome,
       budget: Number(p.budget) || 0,
-      consumed: sumArr((p.monthRealSource || p.monthReal || []).slice(0, TODAY_MONTH + 1))
+      consumed: sumArr((p.monthRealSource || p.monthReal || []).slice(0, TODAY_MONTH + 1)),
+      planned: sumArr((p.monthPlan || []).slice(0, TODAY_MONTH + 1))
     }))
     .sort((a, b) => b.budget - a.budget);
   if (!rows.length) {
     svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="12" fill="#64748b" font-family="DM Sans,sans-serif">Sem dados de consumo</text>`;
     return;
   }
-  const nameW = 168, budgetW = 84, valueW = 158, PT = 18, rowH = 20;
+  const nameW = 168, budgetW = 84, valueW = 160, planPctW = 74, PT = 34, rowH = 20;
   const barH = 8;
   const PL = nameW + budgetW + 12;
-  const PR = valueW + 12;
+  const PR = valueW + planPctW + 18;
   const availableBarW = W - PL - PR;
-  const barW = Math.max(120, availableBarW);
+  const barW = Math.max(120, availableBarW * 0.9);
   const barX = PL;
   let out = '';
+  out += `<text x="8" y="14" font-size="10" font-weight="900" fill="#64748b" font-family="DM Sans,sans-serif">Projeto</text>`;
+  out += `<text x="${nameW + 8}" y="14" font-size="10" font-weight="900" fill="#64748b" font-family="DM Sans,sans-serif">Budget</text>`;
+  out += `<text x="${barX}" y="14" font-size="10" font-weight="900" fill="#64748b" font-family="DM Sans,sans-serif">Progresso</text>`;
+  out += `<text x="${(W - valueW - planPctW - 18).toFixed(1)}" y="14" font-size="10" font-weight="900" fill="#64748b" font-family="DM Sans,sans-serif">Valor consumido</text>`;
+  out += `<text x="${(W - planPctW - 16).toFixed(1)}" y="14" font-size="10" font-weight="900" fill="#64748b" text-anchor="end" font-family="DM Sans,sans-serif">% consumida</text>`;
+  out += `<text x="${(W - 8).toFixed(1)}" y="14" font-size="10" font-weight="900" fill="#64748b" text-anchor="end" font-family="DM Sans,sans-serif">% planejada</text>`;
   rows.forEach((p, i) => {
     const y = PT + i * rowH;
     const pct = Math.max(0, safePct(p.consumed, p.budget || 0));
+    const plannedPct = Math.max(0, safePct(p.planned, p.budget || 0));
     const consumedW = Math.min(barW, pct / 100 * barW);
+    const plannedX = barX + Math.min(barW, plannedPct / 100 * barW);
     const label = String(p.nome || '').length > 23 ? String(p.nome || '').slice(0, 22) + '…' : p.nome;
     out += `<text x="8" y="${(y+barH).toFixed(1)}" font-size="12.4" font-weight="800" fill="#0f172a" font-family="DM Sans,sans-serif">${label}</text>`;
     out += `<text x="${nameW + 8}" y="${(y+barH).toFixed(1)}" font-size="12.4" font-weight="900" fill="#00558c" font-family="DM Sans,sans-serif">${fmtMM(p.budget)}</text>`;
     out += `<rect x="${barX.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH}" rx="4" fill="#e2e8f0"/>`;
+    if (p.planned > 0) out += `<line x1="${plannedX.toFixed(1)}" y1="${(y-4).toFixed(1)}" x2="${plannedX.toFixed(1)}" y2="${(y+barH+4).toFixed(1)}" stroke="#0f172a" stroke-width="1.6"/>`;
     if (consumedW > 0) out += `<rect x="${barX.toFixed(1)}" y="${y.toFixed(1)}" width="${consumedW.toFixed(1)}" height="${barH}" rx="4" fill="#008f86"/>`;
     const pctText = `${pct.toFixed(1).replace('.', ',')}%`;
     const pctClamped = Math.min(100, Math.max(0, pct));
     const pctColor = `rgb(${Math.round(128 - pctClamped * 1.28)}, ${Math.round(198 - pctClamped * .55)}, ${Math.round(0 + pctClamped * 1.34)})`;
-    const pctW = Math.max(36, pctText.length * 7.2);
-    out += `<text x="${(W-8-pctW-8).toFixed(1)}" y="${(y+barH).toFixed(1)}" font-size="12.4" font-weight="900" fill="#008f86" text-anchor="end" font-family="DM Sans,sans-serif">${fmtMM(p.consumed)} ·</text>`;
-    out += `<text x="${(W-8).toFixed(1)}" y="${(y+barH).toFixed(1)}" font-size="12.4" font-weight="900" fill="${pctColor}" text-anchor="end" font-family="DM Sans,sans-serif">${pctText}</text>`;
+    const plannedPctText = `${plannedPct.toFixed(1).replace('.', ',')}%`;
+    out += `<text x="${(W - valueW - planPctW - 18).toFixed(1)}" y="${(y+barH).toFixed(1)}" font-size="12.4" font-weight="900" fill="#008f86" font-family="DM Sans,sans-serif">${fmtMM(p.consumed)}</text>`;
+    out += `<text x="${(W - planPctW - 16).toFixed(1)}" y="${(y+barH).toFixed(1)}" font-size="12.4" font-weight="900" fill="${pctColor}" text-anchor="end" font-family="DM Sans,sans-serif">${pctText}</text>`;
+    out += `<text x="${(W - 8).toFixed(1)}" y="${(y+barH).toFixed(1)}" font-size="12.4" font-weight="900" fill="#00558c" text-anchor="end" font-family="DM Sans,sans-serif">${plannedPctText}</text>`;
   });
   svg.innerHTML = out;
 }
@@ -3194,7 +3222,7 @@ function renderSCurve() {
   if (selectedLocal >= 0) {
     const tx = X(selectedLocal);
     out += `<line x1="${tx.toFixed(0)}" y1="${PT}" x2="${tx.toFixed(0)}" y2="${PT+cH}" stroke="#111827" stroke-width="1.1" stroke-dasharray="4 3" opacity=".45"/>`;
-    out += `<text x="${tx.toFixed(0)}" y="${isPdf ? 9 : PT-8}" font-size="${isPdf ? 12 : 10}" fill="#111827" text-anchor="middle" font-family="DM Sans,sans-serif">${MONTHS[TODAY_MONTH]}</text>`;
+    out += `<text x="${tx.toFixed(0)}" y="${isPdf ? 9 : PT-8}" font-size="${isPdf ? 12 : 10}" fill="#111827" text-anchor="middle" font-family="DM Sans,sans-serif">${formatMonthLabel(MONTHS[TODAY_MONTH])}</text>`;
   }
 
   function pathOf(points) {
@@ -3239,7 +3267,7 @@ function renderSCurve() {
     if (future.length >= 2) out += `<path d="${pathOf(future)}" fill="none" stroke="${color}" stroke-width="2.2" stroke-dasharray="5 4"/>`;
     points.forEach((p, i) => {
       out += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.2" fill="white" stroke="${color}" stroke-width="1.8"/>`;
-      if (selectedLocal >= 0 && i <= selectedLocal && p.value > 0) {
+      if (p.value > 0) {
         const text = fmtChartMM(p.value);
         const boxW = Math.max(58, text.length * (isPdf ? 7.2 : 6.2)), boxH = isPdf ? 18 : 16;
         const y = labelY.get(`${seriesKey}-${i}`) ?? Math.max(2, p.y - 28);
